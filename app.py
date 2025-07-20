@@ -1,4 +1,4 @@
-# app.py – ResumeFit v4  (PDF never truncates, report persists)
+# app.py – ResumeFit v5  (footer on every page + LinkedIn URL)
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -25,9 +25,19 @@ def extract_text(upload):
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-def build_pdf(report):
+def build_pdf(report, linkedin_url=""):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
+
+    # Custom footer on every page
+    def add_footer(canvas, doc):
+        canvas.saveState()
+        footer_text = f"© 2025 ResumeFit – AI Resume & CV Analyzer"
+        if linkedin_url:
+            footer_text += f" | LinkedIn: {linkedin_url}"
+        canvas.drawRightString(A4[0] - inch, 0.75 * inch, footer_text)
+        canvas.restoreState()
+
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         "Title", parent=styles["Title"], fontSize=16, spaceAfter=12, textColor=blue
@@ -42,6 +52,8 @@ def build_pdf(report):
     story.append(Spacer(1, 6))
     story.append(Paragraph(f"<b>Name of Candidate:</b> {report.get('candidate_summary','').split(' is ')[0]}", normal_style))
     story.append(Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style))
+    if linkedin_url:
+        story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
     story.append(Spacer(1, 12))
 
     # Alignment
@@ -79,11 +91,8 @@ def build_pdf(report):
     # Recommendation
     story.append(Paragraph("<b>Recommendation:</b>", title_style))
     story.append(Paragraph(report.get("next_round_recommendation", ""), normal_style))
-    story.append(PageBreak())
 
-    # Footer
-    story.append(Paragraph("© 2025 ResumeFit – AI Resume & CV Analyzer", normal_style))
-    doc.build(story)
+    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     buffer.seek(0)
     return buffer
 
@@ -123,32 +132,19 @@ st.title("ResumeFit – AI Resume & CV Analyzer")
 # ---------- LINKEDIN HELPERS ----------
 st.markdown("### 🔗  LinkedIn Helpers")
 
-# 1.  Always-visible info tooltip **above** the URL field
+# 1.  Info tooltip above URL field
 with st.popover("ℹ️  How to use the URL", use_container_width=False):
     st.markdown(
         """
         **Step-by-step (no copy-paste needed):**  
-        1. **Paste the candidate’s LinkedIn URL** **→ press Enter key (important!)**  
-        2. Click **📄 Save to PDF (LinkedIn)** – this opens the exact profile page  
-        3. On the profile page, click the **More** button  
-        4. Choose **Save to PDF** 📥  
-        5. Upload the downloaded PDF below instead of copying text
+        1. Paste the candidate’s LinkedIn URL.  
+        2. Click **📄 Save to PDF (LinkedIn)** – opens the exact profile page.  
+        3. On the profile page, click the **More** button ➜ **Save to PDF**.  
+        4. Upload the downloaded PDF below instead of copying text.
         """
     )
 
 # 2.  URL field + blue border
-st.markdown(
-    """
-    <style>
-    [data-testid="stTextInput"] > div > div > input {
-        border: 2px solid #007BFF !important;
-        border-radius: 6px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 col1, col2 = st.columns([4, 2])
 with col1:
     profile_url = st.text_input(
@@ -157,12 +153,11 @@ with col1:
         label_visibility="collapsed",
     )
 with col2:
-    # Always link to whatever is currently in the box (no Enter required)
     target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
     st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
 
-# 3.  Copy-paste guide (unchanged)
-with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
+# 3.  Copy-paste guide
+with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
     st.markdown(
         "**Sections to copy:**  \n"
         "1. **Name & Headline**  \n"
@@ -172,6 +167,7 @@ with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
         "5. **Education**  \n"
         "6. **Licenses & Certifications**"
     )
+
 # Blue border on URL field
 st.markdown(
     """
@@ -208,19 +204,30 @@ if submitted:
             st.error(f"Analysis error: {e}")
             st.stop()
 
-    # Persist report in session state
     st.session_state["last_report"] = report
-    st.session_state["last_time"]   = datetime.now()
+    st.session_state["linkedin_url"] = profile_url.strip()
 
 # ---------- PERSISTENT RESULTS ----------
 if "last_report" in st.session_state:
     report = st.session_state["last_report"]
+    linkedin_url = st.session_state.get("linkedin_url", "")
     st.success("Report ready!")
+
     col1, col2 = st.columns(2)
     with col1:
-        st.download_button("📄  Download PDF Report", data=build_pdf(report), file_name="ResumeFit_Report.pdf", mime="application/pdf")
+        st.download_button(
+            "📄 Download PDF Report",
+            data=build_pdf(report, linkedin_url),
+            file_name="ResumeFit_Report.pdf",
+            mime="application/pdf",
+        )
     with col2:
-        st.download_button("💾  Download JSON", data=json.dumps(report, indent=2), file_name="ResumeFit_Report.json", mime="application/json")
+        st.download_button(
+            "💾 Download JSON",
+            data=json.dumps(report, indent=2),
+            file_name="ResumeFit_Report.json",
+            mime="application/json",
+        )
 
     st.subheader("Formatted Report")
     st.metric("Alignment Score", f"{report['alignment_score']} / 10")
