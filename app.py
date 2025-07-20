@@ -1,4 +1,4 @@
-# app.py – ResumeFit v3  (PDF never truncates, report stays visible)
+# app.py – ResumeFit v4  (PDF never truncates, report persists)
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -122,18 +122,17 @@ st.title("ResumeFit – AI Resume & CV Analyzer")
 
 # ---------- LINKEDIN HELPERS ----------
 st.markdown("### 🔗  LinkedIn Helpers")
-with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
-    st.markdown("""
-    **Sections to copy (in order):**  
-    1. **Name & Headline** – first row of the profile  
-    2. **About** – summary paragraph  
-    3. **Experience** – job titles, companies, dates, descriptions  
-    4. **Skills** – listed skills or endorsements  
-    5. **Education** – degrees, institutions, years  
-    6. **Licenses & Certifications** – any credentials or badges
-    """)
 
-col1, col2 = st.columns([3, 1])
+# 1.  Info tooltip above URL field
+with st.popover("ℹ️  How to use the URL", use_container_width=False):
+    st.info(
+        "1. Paste the candidate’s LinkedIn URL.\n"
+        "2. Click **Save to PDF (LinkedIn)** to open the profile page.\n"
+        "3. Save the PDF and upload it below instead of copy-pasting."
+    )
+
+# 2.  URL field + always-visible Save-to-PDF button
+col1, col2 = st.columns([4, 2])
 with col1:
     profile_url = st.text_input(
         "LinkedIn Profile URL (optional)",
@@ -141,19 +140,23 @@ with col1:
         label_visibility="collapsed",
     )
 with col2:
-    if profile_url:
-        st.link_button("🔗  Open Profile", profile_url, use_container_width=True)
-    else:
-        st.link_button("🔗  Save to PDF (LinkedIn)", "https://linkedin.com", use_container_width=True)
+    # Always link to whatever is typed
+    target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
+    st.link_button("📄  Save to PDF (LinkedIn)", target, use_container_width=True)
 
-with st.popover("ℹ️  How to use the URL"):
-    st.info(
-        "**Steps:**\n"
-        "1. Type or paste the LinkedIn URL of the candidate.\n"
-        "2. Press **Enter** (or click outside the box).\n"
-        "3. Click **Open Profile** to view the candidate in a new tab."
+# 3.  Copy-paste guide
+with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
+    st.markdown(
+        "**Sections to copy:**  \n"
+        "1. **Name & Headline**  \n"
+        "2. **About**  \n"
+        "3. **Experience**  \n"
+        "4. **Skills**  \n"
+        "5. **Education**  \n"
+        "6. **Licenses & Certifications**"
     )
 
+# Blue border on URL field
 st.markdown(
     """
     <style>
@@ -189,7 +192,7 @@ if submitted:
             st.error(f"Analysis error: {e}")
             st.stop()
 
-    # ---------- STORE IN SESSION STATE ----------
+    # Persist report in session state
     st.session_state["last_report"] = report
     st.session_state["last_time"]   = datetime.now()
 
