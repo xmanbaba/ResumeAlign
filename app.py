@@ -1,4 +1,4 @@
-# app.py – ResumeFit v9  (no string-inside-string issues)
+# app.py – ResumeFit FINAL (LinkedIn URL in PDF, exact tooltip, page numbers)
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -12,42 +12,44 @@ import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
 
-# ---------- CONFIG ----------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 def extract_text(upload):
-    if not upload:
-        return ""
+    if not upload: return ""
     if upload.type == "application/pdf":
         return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
     if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-def build_pdf(report):
+def build_pdf(report, linkedin_url):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
-    styles = getSampleStyleSheet()
 
     def add_footer(canvas, doc):
         canvas.saveState()
         canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeFit – AI Resume & CV Analyzer   |   Page {doc.page}")
         canvas.restoreState()
 
-    title_style = ParagraphStyle("Title", parent=styles["Title"], fontSize=16, spaceAfter=12, textColor=blue)
-    normal_style = ParagraphStyle("Normal", parent=styles["Normal"], fontSize=11, spaceAfter=6)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("Title", fontSize=16, spaceAfter=12, textColor=blue)
+    normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
 
     story = [
         Paragraph("ResumeFit Analysis Report", title_style),
         Paragraph(f"<b>Name of Candidate:</b> {report.get('candidate_summary','').split(' is ')[0]}", normal_style),
         Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style),
+    ]
+    if linkedin_url:
+        story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
+    story.extend([
         Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style),
         Paragraph(f"<b>Experience Estimate:</b> {report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style),
         Paragraph("<b>Summary:</b>", title_style),
         Paragraph(report.get("candidate_summary", ""), normal_style),
         Paragraph("<b>Strengths:</b>", title_style),
-    ]
+    ])
     for s in report.get("strengths", []):
         story.append(Paragraph(f"• {s}", normal_style))
     story.append(Paragraph("<b>Areas for Improvement:</b>", title_style))
@@ -63,10 +65,7 @@ def build_pdf(report):
     buffer.seek(0)
     return buffer
 
-SYSTEM_PROMPT = (
-    "You are an expert recruiter. Use only the text provided. "
-    "Return valid JSON matching the schema below."
-)
+SYSTEM_PROMPT = "Use only the text provided. Return valid JSON matching the schema."
 
 def build_prompt(jd, profile_text, file_text):
     extra = file_text.strip() if file_text.strip() else "None provided"
@@ -75,7 +74,7 @@ def build_prompt(jd, profile_text, file_text):
         "Candidate Profile / CV:\n" + profile_text + "\n\n"
         "Extra File Text:\n" + extra + "\n\n"
         "Return valid JSON:\n"
-        '{\n'
+        "{\n"
         '  "alignment_score": <0-10>,\n'
         '  "experience_years": {"raw_estimate": "<string>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"},\n'
         '  "candidate_summary": "<300 words>",\n'
@@ -94,11 +93,11 @@ st.title("ResumeFit – AI Resume & CV Analyzer")
 st.markdown("### 🔗  LinkedIn Helpers")
 with st.popover("ℹ️  How to use the URL", use_container_width=False):
     st.markdown(
-        "**Step-by-step:**<br>"
-        "1. Paste the candidate's LinkedIn URL – auto-detected.<br>"
-        "2. Click **Save to PDF (LinkedIn)**.<br>"
-        "3. Click **More → Save to PDF** on the profile.<br>"
-        "4. Upload the downloaded PDF.",
+        "**Step-by-step (no copy-paste needed):**<br>"
+        "1. Paste the candidate’s LinkedIn URL — the URL is **automatically detected**<br>"
+        "2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page<br>"
+        "3. On the profile page, click **More → Save to PDF**<br>"
+        "4. Upload the downloaded PDF instead of copying text",
         unsafe_allow_html=True
     )
 
@@ -145,13 +144,14 @@ if submitted:
             st.error(f"Analysis error: {e}")
             st.stop()
     st.session_state["last_report"] = report
+    st.session_state["linkedin_url"] = profile_url.strip()
 
 if "last_report" in st.session_state:
     report = st.session_state["last_report"]
     st.success("Report ready!")
     col1, col2 = st.columns(2)
     with col1:
-        st.download_button("📄 Download PDF Report", data=build_pdf(report), file_name="ResumeFit_Report.pdf", mime="application/pdf")
+        st.download_button("📄 Download PDF Report", data=build_pdf(report, st.session_state.get("linkedin_url", "")), file_name="ResumeFit_Report.pdf", mime="application/pdf")
     with col2:
         st.download_button("💾 Download JSON", data=json.dumps(report, indent=2), file_name="ResumeFit_Report.json", mime="application/json")
     st.subheader("Formatted Report")
