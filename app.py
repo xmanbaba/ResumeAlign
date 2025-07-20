@@ -1,101 +1,95 @@
-# app.py
+# app.py  – AI LinkedIn Profile Analyzer (Gemini Flash 2.5, no scraping)
 import os, json, streamlit as st
 from datetime import datetime
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
 
-# ---------- CONFIG ----------
-# On Vercel, set GEMINI_API_KEY in Environment Variables (Settings → Environment Variables)
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_KEY:
-    st.error("GEMINI_API_KEY not found.  Add it to Vercel environment variables.")
-    st.stop()
+# ---------- 1. Configure Gemini ----------
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-2.5-flash")
 
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
-
-# ---------- HELPERS ----------
+# ---------- 2. Helpers ----------
 def extract_text(upload):
-    if upload is None:
+    if not upload:
         return ""
     if upload.type == "application/pdf":
-        return "\n".join(p.extract_text() for p in PdfReader(upload).pages)
+        return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
     if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-SYSTEM_PROMPT = "You are an expert recruiter. Return valid JSON matching the schema exactly."
+SYSTEM_PROMPT = """
+You are an expert recruiter.  
+Accept any formatting (bullets, emojis, PDF text).  
+Return only valid JSON that matches the schema.
+"""
 
 def build_prompt(jd, profile_text, file_text):
     return f"""
 Job Description:
 {jd}
 
-LinkedIn / CV Text:
+Candidate Profile / CV:
 {profile_text}
 
-Additional File Text:
+Extra File Text:
 {file_text if file_text.strip() else "None provided"}
 
-Produce a single JSON object:
+Return valid JSON:
 {{
-  "alignment_score": <integer 0–10>,
-  "experience_years": {{
-    "raw_estimate": "<string>",
-    "confidence": "<High | Medium | Low>",
-    "source": "<Manual text | File>"
-  }},
+  "alignment_score": <0-10>,
+  "experience_years": {{"raw_estimate": "<string>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"}},
   "candidate_summary": "<300 words>",
   "areas_for_improvement": ["<string>", "<string>", "<string>", "<string>", "<string>"],
   "strengths": ["<string>", "<string>", "<string>", "<string>", "<string>"],
   "suggested_interview_questions": ["<string>", "<string>", "<string>", "<string>", "<string>"],
-  "next_round_recommendation": "<Yes | No | Maybe – brief reason>",
+  "next_round_recommendation": "<Yes|No|Maybe – brief reason>",
   "sources_used": ["Manual text", "File"]
 }}
 """
 
-# ---------- UI ----------
+# ---------- 3. Streamlit UI ----------
 st.set_page_config(page_title="AI LinkedIn Profile Analyzer", layout="wide")
-st.title("AI LinkedIn Profile Analyzer (Gemini)")
-st.markdown("Paste the Job Description and LinkedIn/CV text. Optionally upload a PDF/DOCX.")
+st.title("AI LinkedIn Profile Analyzer (Gemini Flash 2.5)")
 
 with st.form("analyzer"):
-    jd = st.text_area("Job Description", height=220)
-    profile_text = st.text_area("LinkedIn / CV Text", height=300)
-    uploaded = st.file_uploader("Upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
+    job_desc = st.text_area("Job Description (paste as-is)", height=250)
+    profile_text = st.text_area("LinkedIn / CV Text (paste as-is)", height=300)
+    uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
     submitted = st.form_submit_button("Analyze", type="primary")
 
 if submitted:
-    if not jd or not profile_text:
-        st.error("Both Job Description and Profile text are required.")
+    if not job_desc:
+        st.error("Job Description is required.")
         st.stop()
 
     file_text = extract_text(uploaded)
-    prompt = build_prompt(jd, profile_text, file_text)
+    prompt = build_prompt(job_desc, profile_text, file_text)
 
-    with st.spinner("Analyzing with Gemini..."):
+    with st.spinner("Analyzing with Gemini Flash 2.5…"):
         try:
-            resp = model.generate_content([SYSTEM_PROMPT, prompt])
-            result = json.loads(resp.text.strip("```json").strip("```"))
+            response = model.generate_content([SYSTEM_PROMPT, prompt])
+            data = json.loads(response.text.strip("```json").strip("```"))
         except Exception as e:
-            st.error(f"LLM error: {e}")
+            st.error(f"Analysis error: {e}")
             st.stop()
 
     st.success("Done!")
-    st.json(result)
+    st.json(data)
     st.subheader("Formatted Report")
-    st.write("**Alignment Score:**", result["alignment_score"], "/10")
-    st.write("**Experience Estimate:**", result["experience_years"]["raw_estimate"],
-             f"({result['experience_years']['confidence']} confidence)")
-    st.write("**Summary:**", result["candidate_summary"])
+    st.metric("Alignment Score", f"{data['alignment_score']} / 10")
+    st.write("**Summary:**", data["candidate_summary"])
     st.write("**Strengths:**")
-    st.write("\n".join(f"- {s}" for s in result["strengths"]))
+    for s in data["strengths"]:
+        st.write("-", s)
     st.write("**Areas for Improvement:**")
-    st.write("\n".join(f"- {a}" for a in result["areas_for_improvement"]))
+    for a in data["areas_for_improvement"]:
+        st.write("-", a)
     st.write("**Interview Questions:**")
-    st.write("\n".join(f"{i+1}. {q}" for i, q in enumerate(result["suggested_interview_questions"])))
-    st.write("**Recommendation:**", result["next_round_recommendation"])
+    for i, q in enumerate(data["suggested_interview_questions"], 1):
+        st.write(f"{i}.", q)
+    st.write("**Recommendation:**", data["next_round_recommendation"])
 
-    fname = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    st.download_button("Download JSON", json.dumps(result, indent=2), fname, "application/json")
+    fname = f"report_{datetime.now():%Y%m%d_%H%M%S}.json"
+    st.download_button("Download JSON", json.dumps(data, indent=2), fname, "application/json")
