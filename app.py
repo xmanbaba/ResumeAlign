@@ -1,9 +1,12 @@
-# app.py  – ResumeFit with helper buttons
+# app.py – ResumeFit v3  (PDF never truncates, report stays visible)
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.units import inch
+from reportlab.lib.colors import blue
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
@@ -24,23 +27,69 @@ def extract_text(upload):
 
 def build_pdf(report):
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    text = json.dumps(report, indent=2, ensure_ascii=False)
-    y = height - 40
-    for line in text.splitlines():
-        if y < 40:
-            c.showPage()
-            y = height - 40
-        c.drawString(40, y, line[:90])
-        y -= 14
-    c.save()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "Title", parent=styles["Title"], fontSize=16, spaceAfter=12, textColor=blue
+    )
+    normal_style = ParagraphStyle(
+        "Normal", parent=styles["Normal"], fontSize=11, spaceAfter=6
+    )
+    story = []
+
+    # Header
+    story.append(Paragraph("ResumeFit Analysis Report", title_style))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"<b>Name of Candidate:</b> {report.get('candidate_summary','').split(' is ')[0]}", normal_style))
+    story.append(Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style))
+    story.append(Spacer(1, 12))
+
+    # Alignment
+    story.append(Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style))
+    story.append(Spacer(1, 6))
+
+    # Experience
+    story.append(Paragraph("<b>Experience Estimate:</b>", title_style))
+    story.append(Paragraph(f"{report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style))
+    story.append(Spacer(1, 12))
+
+    # Summary
+    story.append(Paragraph("<b>Summary:</b>", title_style))
+    story.append(Paragraph(report.get("candidate_summary", ""), normal_style))
+    story.append(Spacer(1, 12))
+
+    # Strengths
+    story.append(Paragraph("<b>Strengths:</b>", title_style))
+    for s in report.get("strengths", []):
+        story.append(Paragraph(f"• {s}", normal_style))
+    story.append(Spacer(1, 12))
+
+    # Areas for Improvement
+    story.append(Paragraph("<b>Areas for Improvement:</b>", title_style))
+    for a in report.get("areas_for_improvement", []):
+        story.append(Paragraph(f"• {a}", normal_style))
+    story.append(Spacer(1, 12))
+
+    # Interview Questions
+    story.append(Paragraph("<b>Interview Questions:</b>", title_style))
+    for i, q in enumerate(report.get("suggested_interview_questions", []), 1):
+        story.append(Paragraph(f"{i}. {q}", normal_style))
+    story.append(Spacer(1, 12))
+
+    # Recommendation
+    story.append(Paragraph("<b>Recommendation:</b>", title_style))
+    story.append(Paragraph(report.get("next_round_recommendation", ""), normal_style))
+    story.append(PageBreak())
+
+    # Footer
+    story.append(Paragraph("© 2025 ResumeFit – AI Resume & CV Analyzer", normal_style))
+    doc.build(story)
     buffer.seek(0)
     return buffer
 
 SYSTEM_PROMPT = """
 You are an expert recruiter. Use ONLY the text provided; do not invent data.
-Return valid JSON matching the schema below.
+Return only valid JSON matching the schema below.
 """
 
 def build_prompt(jd, profile_text, file_text):
@@ -71,32 +120,51 @@ Return valid JSON:
 st.set_page_config(page_title="ResumeFit", layout="wide")
 st.title("ResumeFit – AI Resume & CV Analyzer")
 
-# ---------- 3 HELPER BUTTONS ----------
-st.markdown("### 🆘  LinkedIn Helpers")
-col1, col2, col3 = st.columns(3)
+# ---------- LINKEDIN HELPERS ----------
+st.markdown("### 🔗  LinkedIn Helpers")
+with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
+    st.markdown("""
+    **Sections to copy (in order):**  
+    1. **Name & Headline** – first row of the profile  
+    2. **About** – summary paragraph  
+    3. **Experience** – job titles, companies, dates, descriptions  
+    4. **Skills** – listed skills or endorsements  
+    5. **Education** – degrees, institutions, years  
+    6. **Licenses & Certifications** – any credentials or badges
+    """)
 
+col1, col2 = st.columns([3, 1])
 with col1:
-    profile_url = st.text_input("LinkedIn profile URL (optional)", placeholder="https://linkedin.com/in/...")
+    profile_url = st.text_input(
+        "LinkedIn Profile URL (optional)",
+        placeholder="https://linkedin.com/in/...",
+        label_visibility="collapsed",
+    )
+with col2:
     if profile_url:
         st.link_button("🔗  Open Profile", profile_url, use_container_width=True)
-
-with col2:
-    if st.button("📋  Copy-Paste Guide", use_container_width=True):
-        st.info(
-            "**Sections to copy:**\n"
-            "1. **About** – summary paragraph\n"
-            "2. **Experience** – job titles, companies, dates, descriptions\n"
-            "3. **Skills** – listed skills or endorsements"
-        )
-
-with col3:
-    if profile_url:
-        pdf_url = profile_url.rstrip("/") + "/detail/contact-info/overlay/save-to-pdf"
-        st.link_button("📄  Save to PDF (LinkedIn)", pdf_url, use_container_width=True)
     else:
-        st.link_button("📄  Save to PDF (LinkedIn)", "https://linkedin.com", use_container_width=True)
+        st.link_button("🔗  Save to PDF (LinkedIn)", "https://linkedin.com", use_container_width=True)
 
-st.markdown("---")
+with st.popover("ℹ️  How to use the URL"):
+    st.info(
+        "**Steps:**\n"
+        "1. Type or paste the LinkedIn URL of the candidate.\n"
+        "2. Press **Enter** (or click outside the box).\n"
+        "3. Click **Open Profile** to view the candidate in a new tab."
+    )
+
+st.markdown(
+    """
+    <style>
+    [data-testid="stTextInput"] > div > div > input {
+        border: 2px solid #007BFF !important;
+        border-radius: 6px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ---------- ANALYZER ----------
 with st.form("analyzer"):
@@ -121,7 +189,14 @@ if submitted:
             st.error(f"Analysis error: {e}")
             st.stop()
 
-    st.success("Done!")
+    # ---------- STORE IN SESSION STATE ----------
+    st.session_state["last_report"] = report
+    st.session_state["last_time"]   = datetime.now()
+
+# ---------- PERSISTENT RESULTS ----------
+if "last_report" in st.session_state:
+    report = st.session_state["last_report"]
+    st.success("Report ready!")
     col1, col2 = st.columns(2)
     with col1:
         st.download_button("📄  Download PDF Report", data=build_pdf(report), file_name="ResumeFit_Report.pdf", mime="application/pdf")
