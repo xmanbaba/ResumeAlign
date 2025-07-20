@@ -123,28 +123,45 @@ st.title("ResumeFit – AI Resume & CV Analyzer")
 # ---------- LINKEDIN HELPERS ----------
 st.markdown("### 🔗  LinkedIn Helpers")
 
-# 1.  Info tooltip above URL field
+# 1.  Always-visible info tooltip **above** the URL field
 with st.popover("ℹ️  How to use the URL", use_container_width=False):
-    st.info(
-        "1. Paste the candidate’s LinkedIn URL.\n"
-        "2. Click **Save to PDF (LinkedIn)** to open the profile page.\n"
-        "3. Save the PDF and upload it below instead of copy-pasting."
+    st.markdown(
+        """
+        **Step-by-step (no copy-paste needed):**  
+        1. **Paste the candidate’s LinkedIn URL** **→ press Enter key (important!)**  
+        2. Click **📄 Save to PDF (LinkedIn)** – this opens the exact profile page  
+        3. On the profile page, click the **More** button  
+        4. Choose **Save to PDF** 📥  
+        5. Upload the downloaded PDF below instead of copying text
+        """
     )
 
-# 2.  URL field + always-visible Save-to-PDF button
+# 2.  URL field + blue border
+st.markdown(
+    """
+    <style>
+    [data-testid="stTextInput"] > div > div > input {
+        border: 2px solid #007BFF !important;
+        border-radius: 6px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 col1, col2 = st.columns([4, 2])
 with col1:
     profile_url = st.text_input(
-        "LinkedIn Profile URL (optional)",
+        "",
         placeholder="https://linkedin.com/in/...",
         label_visibility="collapsed",
     )
 with col2:
-    # Always link to whatever is typed
+    # Always link to whatever is currently in the box (no Enter required)
     target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
-    st.link_button("📄  Save to PDF (LinkedIn)", target, use_container_width=True)
+    st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
 
-# 3.  Copy-paste guide
+# 3.  Copy-paste guide (unchanged)
 with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
     st.markdown(
         "**Sections to copy:**  \n"
@@ -155,7 +172,6 @@ with st.expander("📋  Copy-Paste Guide (click to open)", expanded=False):
         "5. **Education**  \n"
         "6. **Licenses & Certifications**"
     )
-
 # Blue border on URL field
 st.markdown(
     """
