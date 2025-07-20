@@ -1,4 +1,4 @@
-# app.py – ResumeFit v5  (footer on every page + LinkedIn URL)
+# app.py – ResumeFit v7 FINAL (page numbers, no URL in footer, auto-detect)
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -7,6 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.units import inch
 from reportlab.lib.colors import blue
+from reportlab.lib.enums import TA_CENTER
 import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
@@ -25,18 +26,9 @@ def extract_text(upload):
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-def build_pdf(report, linkedin_url=""):
+def build_pdf(report):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
-
-    # Custom footer on every page
-    def add_footer(canvas, doc):
-        canvas.saveState()
-        footer_text = f"© 2025 ResumeFit – AI Resume & CV Analyzer"
-        if linkedin_url:
-            footer_text += f" | LinkedIn: {linkedin_url}"
-        canvas.drawRightString(A4[0] - inch, 0.75 * inch, footer_text)
-        canvas.restoreState()
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -45,6 +37,15 @@ def build_pdf(report, linkedin_url=""):
     normal_style = ParagraphStyle(
         "Normal", parent=styles["Normal"], fontSize=11, spaceAfter=6
     )
+    footer_style = ParagraphStyle(
+        "Footer", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER, textColor=blue
+    )
+
+    def add_footer(canvas, doc):
+        canvas.saveState()
+        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeFit – AI Resume & CV Analyzer   |   Page {doc.page}")
+        canvas.restoreState()
+
     story = []
 
     # Header
@@ -52,8 +53,6 @@ def build_pdf(report, linkedin_url=""):
     story.append(Spacer(1, 6))
     story.append(Paragraph(f"<b>Name of Candidate:</b> {report.get('candidate_summary','').split(' is ')[0]}", normal_style))
     story.append(Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style))
-    if linkedin_url:
-        story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
     story.append(Spacer(1, 12))
 
     # Alignment
@@ -123,120 +122,3 @@ Return valid JSON:
   "next_round_recommendation": "<Yes|No|Maybe – brief reason>",
   "sources_used": ["Manual text", "File"]
 }}
-"""
-
-# ---------- UI ----------
-st.set_page_config(page_title="ResumeFit", layout="wide")
-st.title("ResumeFit – AI Resume & CV Analyzer")
-
-# ---------- LINKEDIN HELPERS ----------
-st.markdown("### 🔗  LinkedIn Helpers")
-
-# 1.  Info tooltip above URL field
-with st.popover("ℹ️  How to use the URL", use_container_width=False):
-    st.markdown(
-        """
-        **Step-by-step (no copy-paste needed):**  
-        1. Paste the candidate’s LinkedIn URL — the URL is **automatically detected**  
-        2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page  
-        3. On the profile page, click **More** ➜ **Save to PDF**  
-        4. Upload the downloaded PDF instead of copying text  
-        **Tip:** If the button ever fails, press **Enter** after pasting the URL.
-        """
-    )
-
-# 2.  URL field + blue border
-col1, col2 = st.columns([4, 2])
-with col1:
-    profile_url = st.text_input(
-        "",
-        placeholder="https://linkedin.com/in/...",
-        label_visibility="collapsed",
-    )
-with col2:
-    target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
-    st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
-
-# 3.  Copy-paste guide
-with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
-    st.markdown(
-        "**Sections to copy:**  \n"
-        "1. **Name & Headline**  \n"
-        "2. **About**  \n"
-        "3. **Experience**  \n"
-        "4. **Skills**  \n"
-        "5. **Education**  \n"
-        "6. **Licenses & Certifications**"
-    )
-
-# Blue border on URL field
-st.markdown(
-    """
-    <style>
-    [data-testid="stTextInput"] > div > div > input {
-        border: 2px solid #007BFF !important;
-        border-radius: 6px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------- ANALYZER ----------
-with st.form("analyzer"):
-    job_desc = st.text_area("Job Description (paste as-is)", height=250)
-    profile_text = st.text_area("LinkedIn / CV Text (paste as-is)", height=300)
-    uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
-    submitted = st.form_submit_button("Analyze", type="primary")
-
-if submitted:
-    if not job_desc:
-        st.error("Job Description is required.")
-        st.stop()
-
-    file_text = extract_text(uploaded)
-    prompt = build_prompt(job_desc, profile_text, file_text)
-
-    with st.spinner("Analyzing with Gemini Flash 2.5…"):
-        try:
-            response = model.generate_content([SYSTEM_PROMPT, prompt])
-            report = json.loads(response.text.strip("```json").strip("```"))
-        except Exception as e:
-            st.error(f"Analysis error: {e}")
-            st.stop()
-
-    st.session_state["last_report"] = report
-    st.session_state["linkedin_url"] = profile_url.strip()
-
-# ---------- PERSISTENT RESULTS ----------
-if "last_report" in st.session_state:
-    report = st.session_state["last_report"]
-    linkedin_url = st.session_state.get("linkedin_url", "")
-    st.success("Report ready!")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button(
-            "📄 Download PDF Report",
-            data=build_pdf(report, linkedin_url),
-            file_name="ResumeFit_Report.pdf",
-            mime="application/pdf",
-        )
-    with col2:
-        st.download_button(
-            "💾 Download JSON",
-            data=json.dumps(report, indent=2),
-            file_name="ResumeFit_Report.json",
-            mime="application/json",
-        )
-
-    st.subheader("Formatted Report")
-    st.metric("Alignment Score", f"{report['alignment_score']} / 10")
-    st.write("**Summary:**", report["candidate_summary"])
-    st.write("**Strengths:**")
-    for s in report["strengths"]: st.write("-", s)
-    st.write("**Areas for Improvement:**")
-    for a in report["areas_for_improvement"]: st.write("-", a)
-    st.write("**Interview Questions:**")
-    for i, q in enumerate(report["suggested_interview_questions"], 1): st.write(f"{i}.", q)
-    st.write("**Recommendation:**", report["next_round_recommendation"])
