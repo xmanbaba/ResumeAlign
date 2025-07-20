@@ -137,10 +137,11 @@ with st.popover("ℹ️  How to use the URL", use_container_width=False):
     st.markdown(
         """
         **Step-by-step (no copy-paste needed):**  
-        1. Paste the candidate’s LinkedIn URL.  
-        2. Click **📄 Save to PDF (LinkedIn)** – opens the exact profile page.  
-        3. On the profile page, click the **More** button ➜ **Save to PDF**.  
-        4. Upload the downloaded PDF below instead of copying text.
+        1. Paste the candidate’s LinkedIn URL — the URL is **automatically detected**  
+        2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page  
+        3. On the profile page, click **More** ➜ **Save to PDF**  
+        4. Upload the downloaded PDF instead of copying text  
+        **Tip:** If the button ever fails, press **Enter** after pasting the URL.
         """
     )
 
