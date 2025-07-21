@@ -1,4 +1,4 @@
-# app.py – ResumeFit FINAL (LinkedIn URL in PDF, exact tooltip, page numbers)
+# app.py – ResumeAlign v1.0
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -12,11 +12,13 @@ import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
 
+# ---------- CONFIG ----------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 def extract_text(upload):
-    if not upload: return ""
+    if not upload:
+        return ""
     if upload.type == "application/pdf":
         return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
     if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -29,7 +31,7 @@ def build_pdf(report, linkedin_url):
 
     def add_footer(canvas, doc):
         canvas.saveState()
-        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeFit – AI Resume & CV Analyzer   |   Page {doc.page}")
+        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeAlign – AI Resume & CV Analyzer   |   Page {doc.page}")
         canvas.restoreState()
 
     styles = getSampleStyleSheet()
@@ -37,12 +39,13 @@ def build_pdf(report, linkedin_url):
     normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
 
     story = [
-        Paragraph("ResumeFit Analysis Report", title_style),
+        Paragraph("ResumeAlign Analysis Report", title_style),
         Paragraph(f"<b>Name of Candidate:</b> {report.get('candidate_summary','').split(' is ')[0]}", normal_style),
         Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style),
     ]
     if linkedin_url:
         story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
+
     story.extend([
         Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style),
         Paragraph(f"<b>Experience Estimate:</b> {report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style),
@@ -87,8 +90,8 @@ def build_prompt(jd, profile_text, file_text):
     )
 
 # ---------- UI ----------
-st.set_page_config(page_title="ResumeFit", layout="wide")
-st.title("ResumeFit – AI Resume & CV Analyzer")
+st.set_page_config(page_title="ResumeAlign", layout="wide")
+st.title("ResumeAlign – AI Resume & CV Analyzer")
 
 st.markdown("### 🔗  LinkedIn Helpers")
 with st.popover("ℹ️  How to use the URL", use_container_width=False):
@@ -121,7 +124,7 @@ with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
 
 st.markdown(
     '<style>[data-testid="stTextInput"] > div > div > input {border: 2px solid #007BFF !important; border-radius: 6px;}</style>',
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 with st.form("analyzer"):
@@ -151,9 +154,9 @@ if "last_report" in st.session_state:
     st.success("Report ready!")
     col1, col2 = st.columns(2)
     with col1:
-        st.download_button("📄 Download PDF Report", data=build_pdf(report, st.session_state.get("linkedin_url", "")), file_name="ResumeFit_Report.pdf", mime="application/pdf")
+        st.download_button("📄 Download PDF Report", data=build_pdf(report, st.session_state.get("linkedin_url", "")), file_name="ResumeAlign_Report.pdf", mime="application/pdf")
     with col2:
-        st.download_button("💾 Download JSON", data=json.dumps(report, indent=2), file_name="ResumeFit_Report.json", mime="application/json")
+        st.download_button("💾 Download JSON", data=json.dumps(report, indent=2), file_name="ResumeAlign_Report.json", mime="application/json")
     st.subheader("Formatted Report")
     st.metric("Alignment Score", f"{report['alignment_score']} / 10")
     st.write("**Summary:**", report["candidate_summary"])
