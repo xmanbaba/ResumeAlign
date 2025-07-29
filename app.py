@@ -1,5 +1,5 @@
 # app.py – ResumeAlign v1.0 + Batch Analyse (feature-v2)
-
+#latest version with logging codes
 import os
 import json
 import logging
