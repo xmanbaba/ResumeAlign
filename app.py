@@ -2,6 +2,7 @@
 
 import os
 import json
+import logging
 import streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -16,17 +17,35 @@ from PyPDF2 import PdfReader
 from docx import Document
 
 # ---------- CONFIG ----------
+# Set up logging
+logging.basicConfig(
+    filename='error.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 def extract_text(upload):
     if not upload:
+        logger.debug("No file uploaded for extraction")
         return ""
-    if upload.type == "application/pdf":
-        return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
-    if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return "\n".join(p.text for p in Document(upload).paragraphs)
-    return ""
+    try:
+        if upload.type == "application/pdf":
+            text = "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
+            logger.debug("Successfully extracted text from PDF")
+            return text
+        if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            text = "\n".join(p.text for p in Document(upload).paragraphs)
+            logger.debug("Successfully extracted text from DOCX")
+            return text
+        logger.warning(f"Unsupported file type: {upload.type}")
+        return ""
+    except Exception as e:
+        logger.error(f"Error extracting text from file: {e}")
+        return ""
 
 def build_pdf(report, linkedin_url):
     buffer = BytesIO()
@@ -161,6 +180,7 @@ with st.form("analyzer"):
 
     # BUTTONS
     submitted = st.form_submit_button("Analyze", type="primary", disabled=bool(batch_files))
+    logger.debug(f"Button clicked: submitted = {submitted}")  # Log button state
     batch_analyse = st.form_submit_button(
         "🚀 Batch Analyse",
         type="secondary",
@@ -170,8 +190,10 @@ with st.form("analyzer"):
 
 # ---------- SINGLE ANALYSIS ----------
 if submitted:
+    logger.debug("Entering single analysis block")
     if not job_desc:
         st.error("Job Description is required.")
+        logger.error("Job description missing")
         st.stop()
     file_text = extract_text(uploaded)
     prompt = build_prompt(job_desc, profile_text, file_text)
@@ -181,6 +203,7 @@ if submitted:
             report = json.loads(response.text.strip("```json").strip("```"))
         except Exception as e:
             st.error(f"Analysis error: {e}")
+            logger.error(f"Analysis failed: {e}")
             st.stop()
     st.session_state["last_report"] = report
     st.session_state["linkedin_url"] = profile_url.strip()
@@ -211,10 +234,12 @@ if "last_report" in st.session_state:
 if batch_analyse:
     if not job_desc:
         st.error("Job Description is required for batch analysis.")
+        logger.error("Job description missing for batch analysis")
         st.stop()
 
     if not batch_files:
         st.error("Please select at least one CV for batch analysis.")
+        logger.error("No batch files selected")
         st.stop()
 
     progress = st.progress(0)
@@ -232,6 +257,7 @@ if batch_analyse:
                 results.append((base_name, pdf_buffer))
             except Exception as e:
                 st.error(f"Error processing {file.name}: {e}")
+                logger.error(f"Batch file {file.name} processing failed: {e}")
                 continue
         progress.progress(idx / len(batch_files))
 
