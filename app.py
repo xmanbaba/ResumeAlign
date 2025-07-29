@@ -122,7 +122,7 @@ with col2:
     target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
     st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
 
-with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
+with st.popover("📋 Copy-Paste Guide (click to open)", use_container_width=False):
     st.markdown(
         "**Sections to copy:**<br>"
         "1. Name & Headline<br>"
@@ -158,7 +158,7 @@ with st.form("analyzer"):
         st.stop()
 
     # BUTTONS
-    submitted = st.form_submit_button("Analyze", type="primary")
+    submitted = st.form_submit_button("Analyze", type="primary", disabled=bool(batch_files))
     batch_analyse = st.form_submit_button(
         "🚀 Batch Analyse",
         type="secondary",
