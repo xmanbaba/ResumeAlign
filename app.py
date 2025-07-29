@@ -162,7 +162,7 @@ with st.form("analyzer"):
     batch_analyse = st.form_submit_button(
         "🚀 Batch Analyse",
         type="secondary",
-        disabled=not bool(batch_files),
+        disabled=not batch_files or len(batch_files) == 0,
         help="Generate one PDF report per file selected above.",
     )
 
