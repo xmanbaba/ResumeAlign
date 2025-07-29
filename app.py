@@ -1,4 +1,5 @@
-# app.py – ResumeAlign v1.0
+# app.py – ResumeAlign v1.0 + Batch Analyse (feature-v2)
+
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -68,6 +69,16 @@ def build_pdf(report, linkedin_url):
     buffer.seek(0)
     return buffer
 
+# ---------- NEW: batch helper ----------
+def build_batch_zip(reports_and_pdfs):
+    from zipfile import ZipFile
+    zip_buffer = BytesIO()
+    with ZipFile(zip_buffer, "w") as zf:
+        for filename_base, pdf_bytes in reports_and_pdfs:
+            zf.writestr(f"{filename_base}_ResumeAlign_Report.pdf", pdf_bytes.getvalue())
+    zip_buffer.seek(0)
+    return zip_buffer
+
 SYSTEM_PROMPT = "Use only the text provided. Return valid JSON matching the schema."
 
 def build_prompt(jd, profile_text, file_text):
@@ -101,7 +112,7 @@ with st.popover("ℹ️  How to use the URL", use_container_width=False):
         "2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page<br>"
         "3. On the profile page, click **More → Save to PDF**<br>"
         "4. Upload the downloaded PDF instead of copying text",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 col1, col2 = st.columns([4, 2])
@@ -130,9 +141,32 @@ st.markdown(
 with st.form("analyzer"):
     job_desc = st.text_area("Job Description (paste as-is)", height=250)
     profile_text = st.text_area("LinkedIn / CV Text (paste as-is)", height=300)
-    uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
-    submitted = st.form_submit_button("Analyze", type="primary")
 
+    # SINGLE FILE UPLOADER
+    uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
+
+    # BATCH UPLOADER
+    st.markdown("---")
+    batch_files = st.file_uploader(
+        "📂 Batch Upload (max 5 CVs)",
+        type=["pdf", "docx"],
+        accept_multiple_files=True,
+        help="Select up to 5 PDF or DOCX files to analyse in one go.",
+    )
+    if len(batch_files) > 5:
+        st.error("Please select 5 files or fewer for batch analysis.")
+        st.stop()
+
+    # BUTTONS
+    submitted = st.form_submit_button("Analyze", type="primary")
+    batch_analyse = st.form_submit_button(
+        "🚀 Batch Analyse",
+        type="secondary",
+        disabled=not bool(batch_files),
+        help="Generate one PDF report per file selected above.",
+    )
+
+# ---------- SINGLE ANALYSIS ----------
 if submitted:
     if not job_desc:
         st.error("Job Description is required.")
@@ -170,3 +204,41 @@ if "last_report" in st.session_state:
     for i, q in enumerate(report["suggested_interview_questions"], 1):
         st.write(f"{i}.", q)
     st.write("**Recommendation:**", report["next_round_recommendation"])
+
+# ---------- BATCH ANALYSIS ----------
+if batch_analyse:
+    if not job_desc:
+        st.error("Job Description is required for batch analysis.")
+        st.stop()
+
+    if not batch_files:
+        st.error("Please select at least one CV for batch analysis.")
+        st.stop()
+
+    progress = st.progress(0)
+    results = []
+
+    for idx, file in enumerate(batch_files, 1):
+        file_text = extract_text(file)
+        prompt = build_prompt(job_desc, "", file_text)
+        with st.spinner(f"Analysing file {idx}/{len(batch_files)} …"):
+            try:
+                response = model.generate_content([SYSTEM_PROMPT, prompt])
+                report = json.loads(response.text.strip("```json").strip("```"))
+                pdf_buffer = build_pdf(report, "")
+                base_name = os.path.splitext(file.name)[0]
+                results.append((base_name, pdf_buffer))
+            except Exception as e:
+                st.error(f"Error processing {file.name}: {e}")
+                continue
+        progress.progress(idx / len(batch_files))
+
+    if results:
+        zip_buffer = build_batch_zip(results)
+        st.success("Batch analysis complete!")
+        st.download_button(
+            label="📦 Download All Reports (ZIP)",
+            data=zip_buffer,
+            file_name="ResumeAlign_Batch_Reports.zip",
+            mime="application/zip",
+        )
