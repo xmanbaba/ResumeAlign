@@ -1,5 +1,5 @@
 # app.py – ResumeAlign v1.0 + Batch Analyse (feature-v2)
-
+#This version is for Vercel
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
