@@ -1,4 +1,5 @@
-# app.py – ResumeAlign v2.0 - Batch Processing
+# app.py -- ResumeAlign v1.1 Enhanced with Batch Processing
+
 import os, json, streamlit as st
 from datetime import datetime
 from io import BytesIO
@@ -12,6 +13,7 @@ import google.generativeai as genai
 from PyPDF2 import PdfReader
 from docx import Document
 import zipfile
+import time
 
 # ---------- CONFIG ----------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -26,38 +28,32 @@ def extract_text(upload):
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-def get_candidate_name_from_report(report):
-    """Extract candidate name from the summary"""
-    summary = report.get('candidate_summary', '')
-    if ' is ' in summary:
-        return summary.split(' is ')[0].strip()
-    return "Unknown Candidate"
-
-def build_single_pdf(report, linkedin_url="", candidate_name=""):
-    """Build PDF for a single candidate"""
+def build_pdf(report, linkedin_url="", candidate_name=""):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
-
+    
     def add_footer(canvas, doc):
         canvas.saveState()
-        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeAlign – AI Resume & CV Analyzer   |   Page {doc.page}")
+        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeAlign -- AI Resume & CV Analyzer | Page {doc.page}")
         canvas.restoreState()
-
+    
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("Title", fontSize=16, spaceAfter=12, textColor=blue)
     normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
-
-    # Use provided candidate name or extract from summary
-    display_name = candidate_name if candidate_name else get_candidate_name_from_report(report)
-
+    
+    # Extract candidate name from summary or use provided name
+    if not candidate_name and 'candidate_summary' in report:
+        candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else "Unknown Candidate"
+    
     story = [
         Paragraph("ResumeAlign Analysis Report", title_style),
-        Paragraph(f"<b>Name of Candidate:</b> {display_name}", normal_style),
+        Paragraph(f"<b>Name of Candidate:</b> {candidate_name}", normal_style),
         Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style),
     ]
+    
     if linkedin_url:
         story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
-
+    
     story.extend([
         Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style),
         Paragraph(f"<b>Experience Estimate:</b> {report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style),
@@ -65,274 +61,329 @@ def build_single_pdf(report, linkedin_url="", candidate_name=""):
         Paragraph(report.get("candidate_summary", ""), normal_style),
         Paragraph("<b>Strengths:</b>", title_style),
     ])
+    
     for s in report.get("strengths", []):
         story.append(Paragraph(f"• {s}", normal_style))
+    
     story.append(Paragraph("<b>Areas for Improvement:</b>", title_style))
     for a in report.get("areas_for_improvement", []):
         story.append(Paragraph(f"• {a}", normal_style))
+    
     story.append(Paragraph("<b>Interview Questions:</b>", title_style))
     for i, q in enumerate(report.get("suggested_interview_questions", []), 1):
         story.append(Paragraph(f"{i}. {q}", normal_style))
+    
     story.append(Paragraph("<b>Recommendation:</b>", title_style))
     story.append(Paragraph(report.get("next_round_recommendation", ""), normal_style))
-
+    
     doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     buffer.seek(0)
     return buffer
 
-def build_combined_pdf(reports_data):
-    """Build combined PDF with all candidates"""
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
-
-    def add_footer(canvas, doc):
-        canvas.saveState()
-        canvas.drawCentredText(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeAlign – AI Resume & CV Analyzer   |   Page {doc.page}")
-        canvas.restoreState()
-
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("Title", fontSize=16, spaceAfter=12, textColor=blue)
-    normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
-    header_style = ParagraphStyle("Header", fontSize=18, spaceAfter=15, textColor=blue, alignment=TA_CENTER)
-
-    story = [
-        Paragraph("ResumeAlign Batch Analysis Report", header_style),
-        Paragraph(f"<b>Analysis Date:</b> {datetime.now():%d %B %Y}", normal_style),
-        Paragraph(f"<b>Total Candidates Analyzed:</b> {len(reports_data)}", normal_style),
-        Spacer(1, 0.3*inch),
-    ]
-
-    for i, (filename, report) in enumerate(reports_data, 1):
-        candidate_name = get_candidate_name_from_report(report)
-        
-        # Add page break before each new candidate (except the first)
-        if i > 1:
-            story.append(PageBreak())
-        
-        story.extend([
-            Paragraph(f"Candidate {i}: {candidate_name}", header_style),
-            Paragraph(f"<b>Source File:</b> {filename}", normal_style),
-            Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style),
-            Paragraph(f"<b>Experience Estimate:</b> {report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style),
-            Paragraph("<b>Summary:</b>", title_style),
-            Paragraph(report.get("candidate_summary", ""), normal_style),
-            Paragraph("<b>Strengths:</b>", title_style),
-        ])
-        
-        for s in report.get("strengths", []):
-            story.append(Paragraph(f"• {s}", normal_style))
-        story.append(Paragraph("<b>Areas for Improvement:</b>", title_style))
-        for a in report.get("areas_for_improvement", []):
-            story.append(Paragraph(f"• {a}", normal_style))
-        story.append(Paragraph("<b>Interview Questions:</b>", title_style))
-        for j, q in enumerate(report.get("suggested_interview_questions", []), 1):
-            story.append(Paragraph(f"{j}. {q}", normal_style))
-        story.append(Paragraph("<b>Recommendation:</b>", title_style))
-        story.append(Paragraph(report.get("next_round_recommendation", ""), normal_style))
-
-    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
-    buffer.seek(0)
-    return buffer
-
-def create_zip_download(reports_data):
-    """Create a ZIP file containing all individual PDF reports"""
+def create_batch_zip(reports, job_desc):
+    """Create a ZIP file containing all batch reports"""
     zip_buffer = BytesIO()
+    
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for filename, report in reports_data:
-            # Create individual PDF
-            pdf_buffer = build_single_pdf(report)
-            
-            # Clean filename for PDF (remove extension and add .pdf)
-            clean_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
-            pdf_filename = f"ResumeAlign_Report_{clean_name}.pdf"
-            
-            # Add to ZIP
-            zip_file.writestr(pdf_filename, pdf_buffer.getvalue())
+        # Add individual PDF reports
+        for i, report_data in enumerate(reports, 1):
+            report, filename = report_data['report'], report_data['filename']
+            pdf_buffer = build_pdf(report, candidate_name=f"Candidate {i} ({filename})")
+            zip_file.writestr(f"Report_{i}_{filename.rsplit('.', 1)[0]}.pdf", pdf_buffer.read())
+        
+        # Add summary JSON
+        summary = {
+            "job_description": job_desc,
+            "analysis_date": datetime.now().strftime("%d %B %Y"),
+            "total_candidates": len(reports),
+            "candidates": [
+                {
+                    "filename": r['filename'],
+                    "alignment_score": r['report']['alignment_score'],
+                    "recommendation": r['report']['next_round_recommendation'],
+                    "experience": r['report']['experience_years']['raw_estimate']
+                } for r in reports
+            ]
+        }
+        zip_file.writestr("batch_summary.json", json.dumps(summary, indent=2))
     
     zip_buffer.seek(0)
     return zip_buffer
 
 SYSTEM_PROMPT = "Use only the text provided. Return valid JSON matching the schema."
 
-def build_prompt(jd, profile_text, file_text, filename):
+def build_prompt(jd, profile_text, file_text):
     extra = file_text.strip() if file_text.strip() else "None provided"
     return (
-        f"Job Description:\n{jd}\n\n"
-        f"Candidate CV/Resume (from file: {filename}):\n{profile_text}\n\n"
-        f"Additional File Text:\n{extra}\n\n"
+        "Job Description:\n" + jd + "\n\n"
+        "Candidate Profile / CV:\n" + profile_text + "\n\n"
+        "Extra File Text:\n" + extra + "\n\n"
         "Return valid JSON:\n"
         "{\n"
-        '  "alignment_score": <0-10>,\n'
-        '  "experience_years": {"raw_estimate": "<string>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"},\n'
-        '  "candidate_summary": "<300 words>",\n'
-        '  "areas_for_improvement": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        '  "strengths": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        '  "suggested_interview_questions": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        '  "next_round_recommendation": "<Yes|No|Maybe – brief reason>",\n'
-        '  "sources_used": ["File"]\n'
+        ' "alignment_score": <0-10>,\n'
+        ' "experience_years": {"raw_estimate": "<string>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"},\n'
+        ' "candidate_summary": "<300 words>",\n'
+        ' "areas_for_improvement": ["<string>","<string>","<string>","<string>","<string>"],\n'
+        ' "strengths": ["<string>","<string>","<string>","<string>","<string>"],\n'
+        ' "suggested_interview_questions": ["<string>","<string>","<string>","<string>","<string>"],\n'
+        ' "next_round_recommendation": "<Yes|No|Maybe -- brief reason>",\n'
+        ' "sources_used": ["Manual text","File"]\n'
         '}'
     )
 
+def analyze_single_candidate(job_desc, profile_text, file_text=""):
+    """Analyze a single candidate and return the report"""
+    prompt = build_prompt(job_desc, profile_text, file_text)
+    try:
+        response = model.generate_content([SYSTEM_PROMPT, prompt])
+        report = json.loads(response.text.strip("```json").strip("```"))
+        return report, None
+    except Exception as e:
+        return None, str(e)
+
 # ---------- UI ----------
-st.set_page_config(page_title="ResumeAlign - Batch Processing", layout="wide")
-st.title("ResumeAlign – AI Resume & CV Analyzer (Batch Processing)")
+st.set_page_config(page_title="ResumeAlign", layout="wide")
+st.title("ResumeAlign -- AI Resume & CV Analyzer")
 
-st.markdown("### 📁 Batch CV Analysis")
-st.info("Upload up to 5 CV/Resume files (PDF or DOCX) to analyze them all against the same job description.")
+# Add mode selector
+analysis_mode = st.radio(
+    "Choose Analysis Mode:",
+    ["Single Candidate", "Batch Processing (up to 5 files)"],
+    horizontal=True
+)
 
-with st.form("batch_analyzer"):
-    job_desc = st.text_area("Job Description (paste the full job description)", height=250)
+if analysis_mode == "Single Candidate":
+    # Original single candidate interface
+    st.markdown("### 🔗 LinkedIn Helpers")
     
-    uploaded_files = st.file_uploader(
-        "Upload CV/Resume Files (Maximum 5 files)", 
-        type=["pdf", "docx"], 
-        accept_multiple_files=True,
-        help="Select multiple PDF or DOCX files. Maximum 5 files allowed."
+    with st.popover("ℹ️ How to use the URL", use_container_width=False):
+        st.markdown(
+            "**Step-by-step (no copy-paste needed):**<br>"
+            "1. Paste the candidate's LinkedIn URL --- the URL is **automatically detected**<br>"
+            "2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page<br>"
+            "3. On the profile page, click **More → Save to PDF**<br>"
+            "4. Upload the downloaded PDF instead of copying text",
+            unsafe_allow_html=True
+        )
+    
+    col1, col2 = st.columns([4, 2])
+    with col1:
+        profile_url = st.text_input("", placeholder="https://linkedin.com/in/...", label_visibility="collapsed")
+    with col2:
+        target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
+        st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
+    
+    with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
+        st.markdown(
+            "**Sections to copy:**<br>"
+            "1. Name & Headline<br>"
+            "2. About<br>"
+            "3. Experience<br>"
+            "4. Skills<br>"
+            "5. Education<br>"
+            "6. Licenses & Certifications"
+        )
+    
+    st.markdown(
+        '<style>[data-testid="stTextInput"] > div > div > input {border: 2px solid #007BFF !important; border-radius: 6px;}</style>',
+        unsafe_allow_html=True,
     )
     
-    submitted = st.form_submit_button("🚀 Analyze All CVs", type="primary")
+    with st.form("analyzer"):
+        job_desc = st.text_area("Job Description (paste as-is)", height=250)
+        profile_text = st.text_area("LinkedIn / CV Text (paste as-is)", height=300)
+        uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
+        submitted = st.form_submit_button("Analyze", type="primary")
+    
+    if submitted:
+        if not job_desc:
+            st.error("Job Description is required.")
+            st.stop()
+        
+        file_text = extract_text(uploaded)
+        
+        with st.spinner("Analyzing with Gemini Flash 2.5..."):
+            report, error = analyze_single_candidate(job_desc, profile_text, file_text)
+            
+            if error:
+                st.error(f"Analysis error: {error}")
+                st.stop()
+        
+        st.session_state["last_report"] = report
+        st.session_state["linkedin_url"] = profile_url.strip()
 
-if submitted:
-    if not job_desc.strip():
-        st.error("❌ Job Description is required.")
-        st.stop()
+else:
+    # Batch processing interface
+    st.markdown("### 📁 Batch Processing Mode")
+    st.info("Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.")
     
-    if not uploaded_files:
-        st.error("❌ Please upload at least one CV/Resume file.")
-        st.stop()
+    with st.form("batch_analyzer"):
+        job_desc = st.text_area("Job Description (paste as-is)", height=250)
+        uploaded_files = st.file_uploader(
+            "Upload CV files (PDF / DOCX)", 
+            type=["pdf", "docx"], 
+            accept_multiple_files=True,
+            help="Select up to 5 files for batch processing"
+        )
+        batch_submitted = st.form_submit_button("Analyze Batch", type="primary")
     
-    if len(uploaded_files) > 5:
-        st.error("❌ Maximum 5 files allowed. Please select fewer files.")
-        st.stop()
-    
-    # Process all files
-    st.success(f"✅ Processing {len(uploaded_files)} files...")
-    
-    all_reports = []
-    progress_bar = st.progress(0)
-    
-    for i, uploaded_file in enumerate(uploaded_files):
-        with st.spinner(f"Analyzing {uploaded_file.name} ({i+1}/{len(uploaded_files)})..."):
-            try:
-                # Extract text from file
-                file_text = extract_text(uploaded_file)
+    if batch_submitted:
+        if not job_desc:
+            st.error("Job Description is required.")
+            st.stop()
+        
+        if not uploaded_files:
+            st.error("Please upload at least one CV file.")
+            st.stop()
+        
+        if len(uploaded_files) > 5:
+            st.error("Maximum 5 files allowed for batch processing.")
+            st.stop()
+        
+        # Process batch
+        batch_reports = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, uploaded_file in enumerate(uploaded_files):
+            status_text.text(f"Analyzing {uploaded_file.name}... ({i+1}/{len(uploaded_files)})")
+            
+            file_text = extract_text(uploaded_file)
+            if not file_text.strip():
+                st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
+                continue
+            
+            with st.spinner(f"Processing {uploaded_file.name}..."):
+                report, error = analyze_single_candidate(job_desc, "", file_text)
                 
-                if not file_text.strip():
-                    st.warning(f"⚠️ Could not extract text from {uploaded_file.name}. Skipping...")
+                if error:
+                    st.error(f"Error analyzing {uploaded_file.name}: {error}")
                     continue
                 
-                # Build prompt and analyze
-                prompt = build_prompt(job_desc, file_text, "", uploaded_file.name)
-                response = model.generate_content([SYSTEM_PROMPT, prompt])
-                
-                # Parse response
-                report_text = response.text.strip("```json").strip("```")
-                report = json.loads(report_text)
-                
-                # Store report with filename
-                all_reports.append((uploaded_file.name, report))
-                
-            except Exception as e:
-                st.error(f"❌ Error analyzing {uploaded_file.name}: {str(e)}")
-                continue
+                batch_reports.append({
+                    'report': report,
+                    'filename': uploaded_file.name
+                })
+            
+            progress_bar.progress((i + 1) / len(uploaded_files))
+            time.sleep(0.5)  # Small delay to avoid rate limiting
         
-        # Update progress
-        progress_bar.progress((i + 1) / len(uploaded_files))
-    
-    if all_reports:
-        st.session_state["batch_reports"] = all_reports
-        st.session_state["job_description"] = job_desc
+        status_text.text("Analysis complete!")
         
-        # Success message
-        st.success(f"🎉 Successfully analyzed {len(all_reports)} out of {len(uploaded_files)} files!")
+        if batch_reports:
+            st.session_state["batch_reports"] = batch_reports
+            st.session_state["batch_job_desc"] = job_desc
 
-# Display results if available
-if "batch_reports" in st.session_state:
-    reports_data = st.session_state["batch_reports"]
+# Display results for single candidate
+if "last_report" in st.session_state and analysis_mode == "Single Candidate":
+    report = st.session_state["last_report"]
+    st.success("Report ready!")
     
-    st.markdown("---")
-    st.subheader("📊 Analysis Results")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button("📄 Download PDF Report", data=build_pdf(report, st.session_state.get("linkedin_url", "")), file_name="ResumeAlign_Report.pdf", mime="application/pdf")
+    with col2:
+        st.download_button("💾 Download JSON", data=json.dumps(report, indent=2), file_name="ResumeAlign_Report.json", mime="application/json")
+    
+    st.subheader("Formatted Report")
+    st.metric("Alignment Score", f"{report['alignment_score']} / 10")
+    st.write("**Summary:**", report["candidate_summary"])
+    
+    st.write("**Strengths:**")
+    for s in report["strengths"]:
+        st.write("-", s)
+    
+    st.write("**Areas for Improvement:**")
+    for a in report["areas_for_improvement"]:
+        st.write("-", a)
+    
+    st.write("**Interview Questions:**")
+    for i, q in enumerate(report["suggested_interview_questions"], 1):
+        st.write(f"{i}.", q)
+    
+    st.write("**Recommendation:**", report["next_round_recommendation"])
+
+# Display results for batch processing
+if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (up to 5 files)":
+    batch_reports = st.session_state["batch_reports"]
+    job_desc = st.session_state["batch_job_desc"]
+    
+    st.success(f"Batch analysis complete! Processed {len(batch_reports)} candidates.")
     
     # Download options
-    st.markdown("### 📥 Download Options")
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2 = st.columns(2)
     with col1:
-        # Individual reports as ZIP
-        zip_data = create_zip_download(reports_data)
+        zip_data = create_batch_zip(batch_reports, job_desc)
         st.download_button(
-            "📦 Download Individual Reports (ZIP)",
-            data=zip_data,
-            file_name=f"ResumeAlign_Individual_Reports_{datetime.now():%Y%m%d_%H%M%S}.zip",
+            "📦 Download All Reports (ZIP)", 
+            data=zip_data, 
+            file_name=f"ResumeAlign_Batch_{datetime.now().strftime('%Y%m%d_%H%M')}.zip", 
             mime="application/zip"
         )
     
     with col2:
-        # Combined PDF
-        combined_pdf = build_combined_pdf(reports_data)
+        summary_json = {
+            "job_description": job_desc,
+            "analysis_date": datetime.now().strftime("%d %B %Y"),
+            "total_candidates": len(batch_reports),
+            "candidates": [
+                {
+                    "filename": r['filename'],
+                    "alignment_score": r['report']['alignment_score'],
+                    "recommendation": r['report']['next_round_recommendation'],
+                    "experience": r['report']['experience_years']['raw_estimate']
+                } for r in batch_reports
+            ]
+        }
         st.download_button(
-            "📄 Download Combined Report (PDF)",
-            data=combined_pdf,
-            file_name=f"ResumeAlign_Combined_Report_{datetime.now():%Y%m%d_%H%M%S}.pdf",
-            mime="application/pdf"
-        )
-    
-    with col3:
-        # All reports as JSON
-        all_json_data = {f"report_{i+1}_{filename}": report for i, (filename, report) in enumerate(reports_data)}
-        st.download_button(
-            "💾 Download All JSON Data",
-            data=json.dumps(all_json_data, indent=2),
-            file_name=f"ResumeAlign_All_Reports_{datetime.now():%Y%m%d_%H%M%S}.json",
+            "📊 Download Summary (JSON)", 
+            data=json.dumps(summary_json, indent=2), 
+            file_name="batch_summary.json", 
             mime="application/json"
         )
     
-    # Display individual reports
-    st.markdown("### 📋 Individual Reports")
+    # Display summary table
+    st.subheader("Batch Results Summary")
     
-    # Report selector
-    report_names = [f"{i+1}. {filename}" for i, (filename, _) in enumerate(reports_data)]
-    selected_index = st.selectbox(
-        "Select a report to view:",
-        range(len(report_names)),
-        format_func=lambda x: report_names[x]
-    )
+    summary_data = []
+    for i, report_data in enumerate(batch_reports, 1):
+        report = report_data['report']
+        summary_data.append({
+            "Candidate": f"{i}. {report_data['filename']}",
+            "Score": f"{report['alignment_score']}/10",
+            "Experience": report['experience_years']['raw_estimate'],
+            "Recommendation": report['next_round_recommendation']
+        })
     
-    if selected_index is not None:
-        filename, report = reports_data[selected_index]
-        candidate_name = get_candidate_name_from_report(report)
+    st.table(summary_data)
+    
+    # Individual reports
+    st.subheader("Individual Reports")
+    
+    for i, report_data in enumerate(batch_reports, 1):
+        report = report_data['report']
+        filename = report_data['filename']
         
-        st.markdown(f"#### 👤 Report for: {candidate_name}")
-        st.markdown(f"**Source File:** `{filename}`")
-        
-        # Display metrics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Alignment Score", f"{report['alignment_score']}/10")
-        with col2:
-            st.metric("Experience", report['experience_years']['raw_estimate'])
-        with col3:
-            recommendation = report['next_round_recommendation']
-            color = "🟢" if recommendation.lower().startswith('yes') else "🟡" if recommendation.lower().startswith('maybe') else "🔴"
-            st.metric("Recommendation", f"{color} {recommendation}")
-        
-        # Display detailed report
-        with st.expander("📄 Full Report Details", expanded=True):
-            st.write("**Summary:**")
-            st.write(report["candidate_summary"])
+        with st.expander(f"📄 Candidate {i}: {filename}", expanded=False):
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.metric("Score", f"{report['alignment_score']}/10")
+            with col2:
+                st.write("**Recommendation:**", report['next_round_recommendation'])
             
-            st.write("**Strengths:**")
-            for s in report["strengths"]:
-                st.write(f"• {s}")
+            st.write("**Summary:**", report["candidate_summary"])
             
-            st.write("**Areas for Improvement:**")
-            for a in report["areas_for_improvement"]:
-                st.write(f"• {a}")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**Strengths:**")
+                for s in report["strengths"]:
+                    st.write("-", s)
             
-            st.write("**Suggested Interview Questions:**")
-            for i, q in enumerate(report["suggested_interview_questions"], 1):
-                st.write(f"{i}. {q}")
-
-# Footer
-st.markdown("---")
-st.markdown("*ResumeAlign v2.0 - Batch Processing | Powered by Google Gemini 2.5 Flash*")
+            with col2:
+                st.write("**Areas for Improvement:**")
+                for a in report["areas_for_improvement"]:
+                    st.write("-", a)
+            
+            st.write("**Interview Questions:**")
+            for j, q in enumerate(report["suggested_interview_questions"], 1):
+                st.write(f"{j}. {q}")
