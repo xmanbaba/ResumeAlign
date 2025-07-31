@@ -19,7 +19,67 @@ import time
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-def extract_text(upload):
+def extract_candidate_name(text):
+    """Extract candidate name from CV text using various strategies"""
+    if not text.strip():
+        return "Unknown Candidate"
+    
+    lines = text.strip().split('\n')
+    # Remove empty lines
+    lines = [line.strip() for line in lines if line.strip()]
+    
+    if not lines:
+        return "Unknown Candidate"
+    
+    # Strategy 1: First non-empty line is often the name
+    first_line = lines[0].strip()
+    
+    # Clean up common prefixes/suffixes
+    prefixes_to_remove = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam']
+    suffixes_to_remove = ['cv', 'resume', 'curriculum vitae', 'profile']
+    
+    # Convert to lowercase for comparison but keep original case
+    first_line_lower = first_line.lower()
+    
+    # Remove common prefixes
+    for prefix in prefixes_to_remove:
+        if first_line_lower.startswith(prefix):
+            first_line = first_line[len(prefix):].strip()
+            break
+    
+    # Remove common suffixes
+    for suffix in suffixes_to_remove:
+        if first_line_lower.endswith(suffix):
+            first_line = first_line[:-len(suffix)].strip()
+            break
+    
+    # Strategy 2: Look for patterns like "Name: John Doe" or "Full Name: John Doe"
+    name_patterns = ['name:', 'full name:', 'candidate name:', 'applicant name:']
+    for line in lines[:5]:  # Check first 5 lines
+        line_lower = line.lower()
+        for pattern in name_patterns:
+            if pattern in line_lower:
+                name_part = line[line_lower.index(pattern) + len(pattern):].strip()
+                if name_part and len(name_part.split()) >= 2:
+                    return name_part
+    
+    # Strategy 3: If first line looks like a name (2-4 words, no numbers, reasonable length)
+    words = first_line.split()
+    if (2 <= len(words) <= 4 and 
+        all(word.replace('.', '').replace(',', '').isalpha() for word in words) and
+        5 <= len(first_line) <= 50):
+        return first_line
+    
+    # Strategy 4: Look for capitalized words that could be names in first few lines
+    for line in lines[:3]:
+        words = line.split()
+        if (2 <= len(words) <= 4 and 
+            all(word[0].isupper() and word[1:].islower() for word in words if word.isalpha()) and
+            10 <= len(line) <= 50):
+            return line
+    
+    # Fallback: Return first line cleaned up
+    return first_line if first_line else "Unknown Candidate"
     if not upload:
         return ""
     if upload.type == "application/pdf":
@@ -28,7 +88,7 @@ def extract_text(upload):
         return "\n".join(p.text for p in Document(upload).paragraphs)
     return ""
 
-def build_pdf(report, linkedin_url="", candidate_name=""):
+def build_pdf(report, linkedin_url="", candidate_name="", extracted_from_cv=False):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
     
@@ -41,9 +101,11 @@ def build_pdf(report, linkedin_url="", candidate_name=""):
     title_style = ParagraphStyle("Title", fontSize=16, spaceAfter=12, textColor=blue)
     normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
     
-    # Extract candidate name from summary or use provided name
+    # Use the provided candidate name, or extract from summary as fallback
     if not candidate_name and 'candidate_summary' in report:
         candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else "Unknown Candidate"
+    elif not candidate_name:
+        candidate_name = "Unknown Candidate"
     
     story = [
         Paragraph("ResumeAlign Analysis Report", title_style),
@@ -87,9 +149,11 @@ def create_batch_zip(reports, job_desc):
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         # Add individual PDF reports
         for i, report_data in enumerate(reports, 1):
-            report, filename = report_data['report'], report_data['filename']
-            pdf_buffer = build_pdf(report, candidate_name=f"Candidate {i} ({filename})")
-            zip_file.writestr(f"Report_{i}_{filename.rsplit('.', 1)[0]}.pdf", pdf_buffer.read())
+            report, filename, candidate_name = report_data['report'], report_data['filename'], report_data['candidate_name']
+            pdf_buffer = build_pdf(report, candidate_name=candidate_name, extracted_from_cv=True)
+            # Use candidate name for filename if available, otherwise use original filename
+            safe_name = candidate_name.replace(' ', '_').replace('/', '_').replace('\\', '_') if candidate_name != "Unknown Candidate" else filename.rsplit('.', 1)[0]
+            zip_file.writestr(f"Report_{i}_{safe_name}.pdf", pdf_buffer.read())
         
         # Add summary JSON
         summary = {
@@ -98,6 +162,7 @@ def create_batch_zip(reports, job_desc):
             "total_candidates": len(reports),
             "candidates": [
                 {
+                    "candidate_name": r['candidate_name'],
                     "filename": r['filename'],
                     "alignment_score": r['report']['alignment_score'],
                     "recommendation": r['report']['next_round_recommendation'],
@@ -173,7 +238,7 @@ if analysis_mode == "Single Candidate":
         target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
         st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
     
-    with st.expander("📋 Copy-Paste Guide (click to open)", expanded=False):
+    with st.popover("📋 Copy-Paste Guide", use_container_width=False):
         st.markdown(
             "**Sections to copy:**<br>"
             "1. Name & Headline<br>"
@@ -181,7 +246,8 @@ if analysis_mode == "Single Candidate":
             "3. Experience<br>"
             "4. Skills<br>"
             "5. Education<br>"
-            "6. Licenses & Certifications"
+            "6. Licenses & Certifications",
+            unsafe_allow_html=True
         )
     
     st.markdown(
@@ -253,6 +319,9 @@ else:
                 st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
                 continue
             
+            # Extract candidate name from CV text
+            candidate_name = extract_candidate_name(file_text)
+            
             with st.spinner(f"Processing {uploaded_file.name}..."):
                 report, error = analyze_single_candidate(job_desc, "", file_text)
                 
@@ -262,7 +331,8 @@ else:
                 
                 batch_reports.append({
                     'report': report,
-                    'filename': uploaded_file.name
+                    'filename': uploaded_file.name,
+                    'candidate_name': candidate_name
                 })
             
             progress_bar.progress((i + 1) / len(uploaded_files))
@@ -328,6 +398,7 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
             "total_candidates": len(batch_reports),
             "candidates": [
                 {
+                    "candidate_name": r['candidate_name'],
                     "filename": r['filename'],
                     "alignment_score": r['report']['alignment_score'],
                     "recommendation": r['report']['next_round_recommendation'],
@@ -348,8 +419,11 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
     summary_data = []
     for i, report_data in enumerate(batch_reports, 1):
         report = report_data['report']
+        candidate_name = report_data['candidate_name']
+        filename = report_data['filename']
+        display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
         summary_data.append({
-            "Candidate": f"{i}. {report_data['filename']}",
+            "Candidate": f"{i}. {display_name}",
             "Score": f"{report['alignment_score']}/10",
             "Experience": report['experience_years']['raw_estimate'],
             "Recommendation": report['next_round_recommendation']
@@ -363,8 +437,10 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
     for i, report_data in enumerate(batch_reports, 1):
         report = report_data['report']
         filename = report_data['filename']
+        candidate_name = report_data['candidate_name']
+        display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
         
-        with st.expander(f"📄 Candidate {i}: {filename}", expanded=False):
+        with st.expander(f"📄 {display_name} ({filename})", expanded=False):
             col1, col2 = st.columns([1, 3])
             with col1:
                 st.metric("Score", f"{report['alignment_score']}/10")
