@@ -19,69 +19,14 @@ import time
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-def extract_candidate_name(text):
-    """Extract candidate name from CV text using various strategies"""
-    if not text.strip():
-        return "Unknown Candidate"
-    
-    lines = text.strip().split('\n')
-    # Remove empty lines
-    lines = [line.strip() for line in lines if line.strip()]
-    
-    if not lines:
-        return "Unknown Candidate"
-    
-    # Strategy 1: First non-empty line is often the name
-    first_line = lines[0].strip()
-    
-    # Clean up common prefixes/suffixes
-    prefixes_to_remove = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam']
-    suffixes_to_remove = ['cv', 'resume', 'curriculum vitae', 'profile']
-    
-    # Convert to lowercase for comparison but keep original case
-    first_line_lower = first_line.lower()
-    
-    # Remove common prefixes
-    for prefix in prefixes_to_remove:
-        if first_line_lower.startswith(prefix):
-            first_line = first_line[len(prefix):].strip()
-            break
-    
-    # Remove common suffixes
-    for suffix in suffixes_to_remove:
-        if first_line_lower.endswith(suffix):
-            first_line = first_line[:-len(suffix)].strip()
-            break
-    
-    # Strategy 2: Look for patterns like "Name: John Doe" or "Full Name: John Doe"
-    name_patterns = ['name:', 'full name:', 'candidate name:', 'applicant name:']
-    for line in lines[:5]:  # Check first 5 lines
-        line_lower = line.lower()
-        for pattern in name_patterns:
-            if pattern in line_lower:
-                name_part = line[line_lower.index(pattern) + len(pattern):].strip()
-                if name_part and len(name_part.split()) >= 2:
-                    return name_part
-    
-    # Strategy 3: If first line looks like a name (2-4 words, no numbers, reasonable length)
-    words = first_line.split()
-    if (2 <= len(words) <= 4 and 
-        all(word.replace('.', '').replace(',', '').isalpha() for word in words) and
-        5 <= len(first_line) <= 50):
-        return first_line
-    
-    # Strategy 4: Look for capitalized words that could be names in first few lines
-    for line in lines[:3]:
-        words = line.split()
-        if (2 <= len(words) <= 4 and 
-            all(word[0].isupper() and word[1:].islower() for word in words if word.isalpha()) and
-            10 <= len(line) <= 50):
-            return line
-    
-    # Fallback: Return first line cleaned up
-    return first_line if first_line else "Unknown Candidate"
+def extract_text(upload):
     if not upload:
         return ""
+    if upload.type == "application/pdf":
+        return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
+    if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        return "\n".join(p.text for p in Document(upload).paragraphs)
+    return ""
 
 def extract_candidate_name(text):
     """Extract candidate name from CV text using various strategies"""
@@ -144,11 +89,6 @@ def extract_candidate_name(text):
     
     # Fallback: Return first line cleaned up
     return first_line if first_line else "Unknown Candidate"
-    if upload.type == "application/pdf":
-        return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
-    if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return "\n".join(p.text for p in Document(upload).paragraphs)
-    return ""
 
 def build_pdf(report, linkedin_url="", candidate_name="", extracted_from_cv=False):
     buffer = BytesIO()
