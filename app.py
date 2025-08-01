@@ -1,4 +1,4 @@
-# app.py -- ResumeAlign v1.1 Enhanced with Batch Processing
+# app.py -- ResumeAlign v1.2 with Critical Bug Fixes
 
 import os, json, streamlit as st
 from datetime import datetime
@@ -14,6 +14,7 @@ from PyPDF2 import PdfReader
 from docx import Document
 import zipfile
 import time
+import re
 
 # ---------- CONFIG ----------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -29,66 +30,204 @@ def extract_text(upload):
     return ""
 
 def extract_candidate_name(text):
-    """Extract candidate name from CV text using various strategies"""
+    """Enhanced candidate name extraction with LinkedIn profile support"""
     if not text.strip():
         return "Unknown Candidate"
     
-    lines = text.strip().split('\n')
-    # Remove empty lines
-    lines = [line.strip() for line in lines if line.strip()]
+    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     
     if not lines:
         return "Unknown Candidate"
     
-    # Strategy 1: First non-empty line is often the name
-    first_line = lines[0].strip()
+    # Strategy 1: Look for explicit name patterns first
+    name_patterns = [
+        r'name\s*[:]\s*(.+)',
+        r'full\s*name\s*[:]\s*(.+)',
+        r'candidate\s*name\s*[:]\s*(.+)',
+        r'applicant\s*name\s*[:]\s*(.+)'
+    ]
     
-    # Clean up common prefixes/suffixes
-    prefixes_to_remove = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam']
-    suffixes_to_remove = ['cv', 'resume', 'curriculum vitae', 'profile']
-    
-    # Convert to lowercase for comparison but keep original case
-    first_line_lower = first_line.lower()
-    
-    # Remove common prefixes
-    for prefix in prefixes_to_remove:
-        if first_line_lower.startswith(prefix):
-            first_line = first_line[len(prefix):].strip()
-            break
-    
-    # Remove common suffixes
-    for suffix in suffixes_to_remove:
-        if first_line_lower.endswith(suffix):
-            first_line = first_line[:-len(suffix)].strip()
-            break
-    
-    # Strategy 2: Look for patterns like "Name: John Doe" or "Full Name: John Doe"
-    name_patterns = ['name:', 'full name:', 'candidate name:', 'applicant name:']
-    for line in lines[:5]:  # Check first 5 lines
-        line_lower = line.lower()
+    for line in lines[:10]:  # Check first 10 lines
         for pattern in name_patterns:
-            if pattern in line_lower:
-                name_part = line[line_lower.index(pattern) + len(pattern):].strip()
-                if name_part and len(name_part.split()) >= 2:
-                    return name_part
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                extracted_name = match.group(1).strip()
+                if is_valid_name(extracted_name):
+                    return clean_name(extracted_name)
     
-    # Strategy 3: If first line looks like a name (2-4 words, no numbers, reasonable length)
-    words = first_line.split()
-    if (2 <= len(words) <= 4 and 
-        all(word.replace('.', '').replace(',', '').isalpha() for word in words) and
-        5 <= len(first_line) <= 50):
-        return first_line
+    # Strategy 2: Handle LinkedIn profiles specifically
+    # LinkedIn profiles often have structure like: Contact, About, Experience
+    # The actual name usually appears early but not necessarily first
+    linkedin_indicators = ['contact', 'about', 'experience', 'education', 'skills', 'linkedin']
     
-    # Strategy 4: Look for capitalized words that could be names in first few lines
-    for line in lines[:3]:
+    # Check if this looks like a LinkedIn profile
+    first_few_lines = ' '.join(lines[:5]).lower()
+    is_linkedin = any(indicator in first_few_lines for indicator in linkedin_indicators)
+    
+    if is_linkedin:
+        # For LinkedIn, skip navigation elements and look for name patterns
+        for i, line in enumerate(lines[:15):  # Extended search for LinkedIn
+            line_lower = line.lower()
+            
+            # Skip obvious navigation/section headers
+            if line_lower in ['contact', 'about', 'experience', 'education', 'skills', 'linkedin', 'profile']:
+                continue
+            
+            # Skip lines that look like job titles or companies (contain common job words)
+            job_keywords = ['engineer', 'manager', 'director', 'analyst', 'consultant', 'developer', 
+                          'specialist', 'coordinator', 'assistant', 'lead', 'senior', 'junior',
+                          'company', 'inc', 'ltd', 'corp', 'llc', 'university', 'college']
+            if any(keyword in line_lower for keyword in job_keywords):
+                continue
+            
+            # Check if this line looks like a name
+            if is_valid_name(line):
+                return clean_name(line)
+    
+    # Strategy 3: Traditional CV approach - first meaningful line
+    for line in lines[:5]:
+        if is_valid_name(line):
+            return clean_name(line)
+    
+    # Strategy 4: Look for capitalized sequences that could be names
+    for line in lines[:10]:
+        # Look for 2-4 capitalized words
         words = line.split()
-        if (2 <= len(words) <= 4 and 
-            all(word[0].isupper() and word[1:].islower() for word in words if word.isalpha()) and
-            10 <= len(line) <= 50):
-            return line
+        if 2 <= len(words) <= 4:
+            capitalized_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
+            if len(capitalized_words) >= 2 and len(capitalized_words) == len(words):
+                candidate_name = ' '.join(capitalized_words)
+                if is_valid_name(candidate_name):
+                    return clean_name(candidate_name)
     
-    # Fallback: Return first line cleaned up
-    return first_line if first_line else "Unknown Candidate"
+    # Strategy 5: Use AI to extract name as last resort
+    try:
+        # Take first 500 characters and ask AI to extract the name
+        text_sample = text[:500]
+        ai_extracted_name = extract_name_with_ai(text_sample)
+        if ai_extracted_name and is_valid_name(ai_extracted_name):
+            return clean_name(ai_extracted_name)
+    except:
+        pass  # Fall back to unknown if AI extraction fails
+    
+    # Fallback: Use first line if nothing else works
+    return clean_name(lines[0]) if lines else "Unknown Candidate"
+
+def is_valid_name(name_candidate):
+    """Check if a string looks like a valid name"""
+    if not name_candidate or not name_candidate.strip():
+        return False
+    
+    name = name_candidate.strip()
+    
+    # Basic checks
+    if len(name) < 2 or len(name) > 100:
+        return False
+    
+    # Should not contain numbers
+    if any(char.isdigit() for char in name):
+        return False
+    
+    # Should not be common non-name words
+    non_names = ['contact', 'about', 'experience', 'education', 'skills', 'profile', 'resume', 'cv',
+                'curriculum', 'vitae', 'linkedin', 'email', 'phone', 'address', 'objective',
+                'summary', 'unknown', 'candidate', 'applicant']
+    
+    if name.lower() in non_names:
+        return False
+    
+    # Should have at least 2 parts (first and last name)
+    parts = name.split()
+    if len(parts) < 2:
+        return False
+    
+    # Each part should be mostly alphabetic
+    for part in parts:
+        if not part.replace('.', '').replace(',', '').replace('-', '').replace("'", '').isalpha():
+            return False
+    
+    return True
+
+def clean_name(name):
+    """Clean and format extracted name"""
+    if not name:
+        return "Unknown Candidate"
+    
+    # Remove common prefixes and suffixes
+    prefixes = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam']
+    suffixes = ['cv', 'resume', 'curriculum vitae', 'profile']
+    
+    name = name.strip()
+    name_lower = name.lower()
+    
+    # Remove prefixes
+    for prefix in prefixes:
+        if name_lower.startswith(prefix):
+            name = name[len(prefix):].strip()
+            break
+    
+    # Remove suffixes
+    for suffix in suffixes:
+        if name_lower.endswith(suffix):
+            name = name[:-len(suffix)].strip()
+            break
+    
+    # Title case the name
+    words = name.split()
+    cleaned_words = []
+    for word in words:
+        if word:
+            # Handle names with apostrophes and hyphens
+            if "'" in word or "-" in word:
+                parts = re.split(r"(['-])", word)
+                title_parts = []
+                for part in parts:
+                    if part in ["'", "-"]:
+                        title_parts.append(part)
+                    else:
+                        title_parts.append(part.capitalize())
+                cleaned_words.append(''.join(title_parts))
+            else:
+                cleaned_words.append(word.capitalize())
+    
+    result = ' '.join(cleaned_words)
+    return result if result else "Unknown Candidate"
+
+def extract_name_with_ai(text_sample):
+    """Use AI to extract name from text as last resort"""
+    try:
+        prompt = f"""Extract only the candidate's full name from this CV/resume text. Return only the name, nothing else.
+
+Text: {text_sample}
+
+Name:"""
+        
+        response = model.generate_content(prompt)
+        extracted = response.text.strip()
+        
+        # Clean up AI response
+        extracted = re.sub(r'^(name:|full name:|candidate name:)', '', extracted, flags=re.IGNORECASE).strip()
+        extracted = extracted.replace('"', '').replace("'", '').strip()
+        
+        return extracted if extracted else None
+    except:
+        return None
+
+def create_safe_filename(candidate_name, filename, index):
+    """Create a safe filename ensuring uniqueness"""
+    if candidate_name and candidate_name != "Unknown Candidate":
+        # Use candidate name as base
+        base_name = candidate_name.replace(' ', '_')
+    else:
+        # Use original filename without extension
+        base_name = filename.rsplit('.', 1)[0]
+    
+    # Remove unsafe characters
+    safe_name = re.sub(r'[<>:"/\\|?*]', '_', base_name)
+    safe_name = re.sub(r'[^\w\-_\.]', '_', safe_name)
+    
+    # Ensure uniqueness by adding index
+    return f"Report_{index:02d}_{safe_name}.pdf"
 
 def build_pdf(report, linkedin_url="", candidate_name="", extracted_from_cv=False):
     buffer = BytesIO()
@@ -145,17 +284,40 @@ def build_pdf(report, linkedin_url="", candidate_name="", extracted_from_cv=Fals
     return buffer
 
 def create_batch_zip(reports, job_desc):
-    """Create a ZIP file containing all batch reports"""
+    """Create a ZIP file containing all batch reports with improved filename handling"""
     zip_buffer = BytesIO()
     
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Track used filenames to avoid duplicates
+        used_filenames = set()
+        
         # Add individual PDF reports
         for i, report_data in enumerate(reports, 1):
-            report, filename, candidate_name = report_data['report'], report_data['filename'], report_data['candidate_name']
+            report = report_data['report']
+            filename = report_data['filename']
+            candidate_name = report_data['candidate_name']
+            
+            # Generate PDF
             pdf_buffer = build_pdf(report, candidate_name=candidate_name, extracted_from_cv=True)
-            # Use candidate name for filename if available, otherwise use original filename
-            safe_name = candidate_name.replace(' ', '_').replace('/', '_').replace('\\', '_') if candidate_name != "Unknown Candidate" else filename.rsplit('.', 1)[0]
-            zip_file.writestr(f"Report_{i}_{safe_name}.pdf", pdf_buffer.read())
+            
+            # Create safe, unique filename
+            safe_filename = create_safe_filename(candidate_name, filename, i)
+            
+            # Ensure uniqueness
+            counter = 1
+            original_safe_filename = safe_filename
+            while safe_filename in used_filenames:
+                base_name = original_safe_filename.rsplit('.', 1)[0]
+                safe_filename = f"{base_name}_v{counter}.pdf"
+                counter += 1
+            
+            used_filenames.add(safe_filename)
+            
+            # Add to ZIP
+            zip_file.writestr(safe_filename, pdf_buffer.read())
+            
+            # Debug logging
+            print(f"Added to ZIP: {safe_filename} (Original: {filename}, Name: {candidate_name})")
         
         # Add summary JSON
         summary = {
@@ -321,8 +483,11 @@ else:
                 st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
                 continue
             
-            # Extract candidate name from CV text
+            # Extract candidate name from CV text with enhanced logic
             candidate_name = extract_candidate_name(file_text)
+            
+            # Debug display for testing
+            st.info(f"Extracted name for {uploaded_file.name}: '{candidate_name}'")
             
             with st.spinner(f"Processing {uploaded_file.name}..."):
                 report, error = analyze_single_candidate(job_desc, "", file_text)
