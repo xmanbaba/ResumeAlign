@@ -152,7 +152,7 @@ def clean_name(name):
         return "Unknown Candidate"
    
     # Remove common prefixes and suffixes
-    prefixes = ['mr.', 'mrs.', 'ms.,', 'dr.', 'prof.,', 'sir', 'madam']
+    prefixes = ['mr.', 'mrs.,', 'ms.,', 'dr.,', 'prof.,', 'sir', 'madam']
     suffixes = ['cv', 'resume', 'curriculum vitae', 'profile']
    
     name = name.strip()
@@ -481,10 +481,8 @@ else:
                 st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
                 continue
            
-            # Extract candidate name with enhanced logic, mirroring single candidate approach
+            # Extract candidate name with enhanced logic first
             candidate_name = extract_candidate_name(file_text)
-            if 'candidate_summary' in report and not candidate_name:
-                candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else candidate_name
            
             # Debug display for testing
             st.info(f"Extracted name for {uploaded_file.name}: '{candidate_name}'")
@@ -495,6 +493,12 @@ else:
                 if error:
                     st.error(f"Error analyzing {uploaded_file.name}: {error}")
                     continue
+               
+                # Use candidate_summary as fallback if name extraction failed
+                if not candidate_name and 'candidate_summary' in report:
+                    candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else candidate_name
+                    if not candidate_name or not is_valid_name(candidate_name):
+                        candidate_name = "Unknown Candidate"
                
                 batch_reports.append({
                     'report': report,
