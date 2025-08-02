@@ -722,4 +722,5 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
             st.write("**Interview Questions:**")
             for j, q in enumerate(report["suggested_interview_questions"], 1):
                 st.write(f"{j}. {q}")
-            "
+            
+
