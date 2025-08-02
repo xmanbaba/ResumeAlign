@@ -28,7 +28,7 @@ def extract_text(upload):
     return ""
 
 def extract_candidate_name(text):
-    """Enhanced candidate name extraction with LinkedIn profile support"""
+    """Enhanced candidate name extraction with LinkedIn profile and combined document support"""
     if not text.strip():
         return "Unknown Candidate"
    
@@ -53,43 +53,34 @@ def extract_candidate_name(text):
                 if is_valid_name(extracted_name):
                     return clean_name(extracted_name)
    
-    # Strategy 2: Handle LinkedIn profiles specifically
-    # LinkedIn profiles often have structure like: Contact, About, Experience
-    # The actual name usually appears early but not necessarily first
+    # Strategy 2: Handle LinkedIn and combined docs
     linkedin_indicators = ['contact', 'about', 'experience', 'education', 'skills', 'linkedin']
-   
-    # Check if this looks like a LinkedIn profile
     first_few_lines = ' '.join(lines[:5]).lower()
-    is_linkedin = any(indicator in first_few_lines for indicator in linkedin_indicators)
+    is_linkedin_or_combined = any(indicator in first_few_lines for indicator in linkedin_indicators)
    
-    if is_linkedin:
-        # For LinkedIn, skip navigation elements and look for name patterns
-        for i, line in enumerate(lines[:15]):  # Extended search for LinkedIn
+    if is_linkedin_or_combined:
+        for i, line in enumerate(lines[:15]):
             line_lower = line.lower()
-           
-            # Skip obvious navigation/section headers
-            if line_lower in ['contact', 'about', 'experience', 'education', 'skills', 'linkedin', 'profile']:
+            # Skip section headers and common non-name lines
+            if line_lower in ['contact', 'about', 'experience', 'education', 'skills', 'linkedin', 
+                             'profile', 'summary', 'objective', 'cover letter']:
                 continue
-           
-            # Skip lines that look like job titles or companies (contain common job words)
+            # Skip job-related lines
             job_keywords = ['engineer', 'manager', 'director', 'analyst', 'consultant', 'developer',
                           'specialist', 'coordinator', 'assistant', 'lead', 'senior', 'junior',
                           'company', 'inc', 'ltd', 'corp', 'llc', 'university', 'college']
             if any(keyword in line_lower for keyword in job_keywords):
                 continue
-           
-            # Check if this line looks like a name
             if is_valid_name(line):
                 return clean_name(line)
    
-    # Strategy 3: Traditional CV approach - first meaningful line
+    # Strategy 3: First valid name in top 5 lines
     for line in lines[:5]:
         if is_valid_name(line):
             return clean_name(line)
    
-    # Strategy 4: Look for capitalized sequences that could be names
+    # Strategy 4: Capitalized name sequences
     for line in lines[:10]:
-        # Look for 2-4 capitalized words
         words = line.split()
         if 2 <= len(words) <= 4:
             capitalized_words = [w for w in words if w and w[0].isupper() and w.isalpha()]
@@ -98,17 +89,15 @@ def extract_candidate_name(text):
                 if is_valid_name(candidate_name):
                     return clean_name(candidate_name)
    
-    # Strategy 5: Use AI to extract name as last resort
+    # Strategy 5: AI extraction as last resort
     try:
-        # Take first 500 characters and ask AI to extract the name
         text_sample = text[:500]
         ai_extracted_name = extract_name_with_ai(text_sample)
         if ai_extracted_name and is_valid_name(ai_extracted_name):
             return clean_name(ai_extracted_name)
     except:
-        pass # Fall back to unknown if AI extraction fails
+        pass
    
-    # Fallback: Use first line if nothing else works
     return clean_name(lines[0]) if lines else "Unknown Candidate"
 
 def is_valid_name(name_candidate):
