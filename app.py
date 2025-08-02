@@ -339,8 +339,6 @@ def create_batch_zip(reports, job_desc):
     zip_buffer.seek(0)
     return zip_buffer
 
-SYSTEM_PROMPT = "Use only the text provided. Return valid JSON matching the schema."
-
 def build_prompt(jd, profile_text, file_text):
     extra = file_text.strip() if file_text.strip() else "None provided"
     return (
@@ -369,6 +367,45 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
         return report, None
     except Exception as e:
         return None, str(e)
+
+def analyze_batch_candidates(job_desc, uploaded_files):
+    batch_reports = []
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    for i, uploaded_file in enumerate(uploaded_files):
+        status_text.text(f"Analyzing {uploaded_file.name}... ({i+1}/{len(uploaded_files)})")
+
+        file_text = extract_text(uploaded_file)
+
+        if not file_text.strip():
+            st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
+            continue
+
+        # Extract candidate name from CV text with enhanced logic
+        candidate_name = extract_candidate_name(file_text)
+
+        # Debug display for testing
+        st.info(f"Extracted name for {uploaded_file.name}: '{candidate_name}'")
+
+        with st.spinner(f"Processing {uploaded_file.name}..."):
+            report, error = analyze_single_candidate(job_desc, "", file_text)
+
+            if error:
+                st.error(f"Error analyzing {uploaded_file.name}: {error}")
+                continue
+
+            batch_reports.append({
+                'report': report,
+                'filename': uploaded_file.name,
+                'candidate_name': candidate_name
+            })
+
+        progress_bar.progress((i + 1) / len(uploaded_files))
+        time.sleep(0.5)  # Small delay to avoid rate limiting
+
+    status_text.text("Analysis complete!")
+    return batch_reports
 
 # ---------- UI ----------
 st.set_page_config(page_title="ResumeAlign", layout="wide")
@@ -471,42 +508,7 @@ else:
             st.stop()
 
         # Process batch
-        batch_reports = []
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        for i, uploaded_file in enumerate(uploaded_files):
-            status_text.text(f"Analyzing {uploaded_file.name}... ({i+1}/{len(uploaded_files)})")
-
-            file_text = extract_text(uploaded_file)
-
-            if not file_text.strip():
-                st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
-                continue
-
-            # Extract candidate name from CV text with enhanced logic
-            candidate_name = extract_candidate_name(file_text)
-
-            # Debug display for testing
-            st.info(f"Extracted name for {uploaded_file.name}: '{candidate_name}'")
-
-            with st.spinner(f"Processing {uploaded_file.name}..."):
-                report, error = analyze_single_candidate(job_desc, "", file_text)
-
-                if error:
-                    st.error(f"Error analyzing {uploaded_file.name}: {error}")
-                    continue
-
-                batch_reports.append({
-                    'report': report,
-                    'filename': uploaded_file.name,
-                    'candidate_name': candidate_name
-                })
-
-            progress_bar.progress((i + 1) / len(uploaded_files))
-            time.sleep(0.5)  # Small delay to avoid rate limiting
-
-        status_text.text("Analysis complete!")
+        batch_reports = analyze_batch_candidates(job_desc, uploaded_files)
 
         if batch_reports:
             st.session_state["batch_reports"] = batch_reports
