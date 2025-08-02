@@ -152,7 +152,7 @@ def clean_name(name):
         return "Unknown Candidate"
    
     # Remove common prefixes and suffixes
-    prefixes = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam']
+    prefixes = ['mr.', 'mrs.', 'ms.,', 'dr.', 'prof.,', 'sir', 'madam']
     suffixes = ['cv', 'resume', 'curriculum vitae', 'profile']
    
     name = name.strip()
@@ -481,8 +481,10 @@ else:
                 st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
                 continue
            
-            # Extract candidate name from CV text with enhanced logic
+            # Extract candidate name with enhanced logic, mirroring single candidate approach
             candidate_name = extract_candidate_name(file_text)
+            if 'candidate_summary' in report and not candidate_name:
+                candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else candidate_name
            
             # Debug display for testing
             st.info(f"Extracted name for {uploaded_file.name}: '{candidate_name}'")
