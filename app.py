@@ -1,4 +1,4 @@
-# app.py -- ResumeAlign v1.4 with Fixed Batch Processing Name Extraction
+# app.py -- ResumeAlign v1.4 with Enhanced UI/UX Design
 
 import os, json, streamlit as st
 from datetime import datetime
@@ -35,7 +35,6 @@ def extract_candidate_name_from_ai_report(report):
         # Method 1: Extract from candidate_summary (most reliable)
         if 'candidate_summary' in report:
             summary = report['candidate_summary']
-            
             # Look for patterns like "John Doe is a...", "John Doe brings...", etc.
             name_patterns = [
                 r'^([A-Z][a-z]+(?: [A-Z][a-z]+)*(?:,? [A-Z]+\.?)*) is ',
@@ -54,7 +53,6 @@ def extract_candidate_name_from_ai_report(report):
                     extracted_name = re.sub(r'[,.]$', '', extracted_name)
                     if is_valid_name(extracted_name):
                         return clean_name(extracted_name)
-        
         return None
     except:
         return None
@@ -70,10 +68,10 @@ def extract_candidate_name(text):
     
     # Strategy 1: Look for explicit name patterns first
     name_patterns = [
-        r'name\s*[:]\s*(.+)',
-        r'full\s*name\s*[:]\s*(.+)',
-        r'candidate\s*name\s*[:]\s*(.+)',
-        r'applicant\s*name\s*[:]\s*(.+)'
+        r'name\s*[:]?\s*(.+)',
+        r'full\s*name\s*[:]?\s*(.+)',
+        r'candidate\s*name\s*[:]?\s*(.+)',
+        r'applicant\s*name\s*[:]?\s*(.+)'
     ]
     
     for line in lines[:10]:  # Check first 10 lines
@@ -97,7 +95,7 @@ def extract_candidate_name(text):
             line_lower = line.lower()
             
             # Skip obvious navigation/section headers
-            skip_terms = ['contact', 'about', 'experience', 'education', 'skills', 'linkedin', 
+            skip_terms = ['contact', 'about', 'experience', 'education', 'skills', 'linkedin',
                          'profile', 'top skills', 'summary', 'recommendations', 'accomplishments',
                          'licenses', 'certifications', 'volunteer', 'publications', 'projects']
             
@@ -125,7 +123,7 @@ def extract_candidate_name(text):
     # Look for patterns like "MR. JOHN DOE", "MS. JANE SMITH", etc.
     for line in lines[:15]:
         # Pattern for formal titles with names
-        title_pattern = r'^(?:MR\.?|MS\.?|MRS\.?|DR\.?|PROF\.?)\s+([A-Z][A-Z\s.]+)(?:\s*-|\s*–|$)'
+        title_pattern = r'^(?:MR\.?|MS\.?|MRS\.?|DR\.?|PROF\.?)\s+([A-Z][A-Z\s.]+)(?:\s*-|\s*--|\$)'
         match = re.search(title_pattern, line, re.IGNORECASE)
         if match:
             potential_name = match.group(1).strip()
@@ -190,7 +188,7 @@ def is_valid_name(name_candidate):
     
     # Should not contain job-related phrases
     job_phrases = ['business leadership', 'real estate', 'for real estate', 'leadership role',
-                   'business development', 'account manager', 'sales manager', 'project manager']
+                  'business development', 'account manager', 'sales manager', 'project manager']
     
     if any(phrase in name.lower() for phrase in job_phrases):
         return False
@@ -234,7 +232,7 @@ def clean_name(name):
             break
     
     # Remove content after common separators
-    separators = [' - ', ' – ', ' | ', ' for ', ' cv', ' resume']
+    separators = [' - ', ' -- ', ' | ', ' for ', ' cv', ' resume']
     for sep in separators:
         if sep in name.lower():
             name = name.split(sep)[0].strip()
@@ -243,7 +241,6 @@ def clean_name(name):
     # Title case the name
     words = name.split()
     cleaned_words = []
-    
     for word in words:
         if word:
             # Handle names with apostrophes and hyphens
@@ -441,206 +438,634 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
     except Exception as e:
         return None, str(e)
 
-# ---------- UI ----------
-st.set_page_config(page_title="ResumeAlign", layout="wide")
-st.title("ResumeAlign -- AI Resume & CV Analyzer")
+def apply_custom_css():
+    """Apply modern CSS styling"""
+    st.markdown("""
+    <style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global Styles */
+    .stApp {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    /* Main Container */
+    .main > div {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    /* Header Styling */
+    .main-header {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .main-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 3rem;
+        font-weight: 700;
+        text-align: center;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+    
+    .main-subtitle {
+        text-align: center;
+        color: #64748b;
+        font-size: 1.2rem;
+        margin-top: 0.5rem;
+        font-weight: 400;
+    }
+    
+    /* Card Styling */
+    .analysis-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 1rem 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .analysis-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Mode Selector */
+    .stRadio > label {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 1rem;
+        border-radius: 12px;
+        margin: 0.5rem 0;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .stRadio > label:hover {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Form Elements */
+    .stTextArea textarea, .stTextInput input {
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        padding: 1rem !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: all 0.3s ease !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+    }
+    
+    .stTextArea textarea:focus, .stTextInput input:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3) !important;
+    }
+    
+    .stDownloadButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
+    }
+    
+    /* File Uploader */
+    .stFileUploader {
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px dashed #e2e8f0;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stFileUploader:hover {
+        border-color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+    }
+    
+    /* Metrics */
+    .stMetric {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Progress Bar */
+    .stProgress .css-1cpxqw2 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+    }
+    
+    /* Info/Success/Error Messages */
+    .stAlert {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Sidebar */
+    .css-1d391kg {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+    }
+    
+    /* Tables */
+    .stTable {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-weight: 600;
+    }
+    
+    /* LinkedIn Helper Section */
+    .linkedin-section {
+        background: linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 119, 181, 0.05) 100%);
+        border: 1px solid rgba(0, 119, 181, 0.2);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Link Button Styling */
+    .stLinkButton > a {
+        background: linear-gradient(135deg, #0077b5 0%, #005582 100%) !important;
+        color: white !important;
+        text-decoration: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        display: block !important;
+        text-align: center !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(0, 119, 181, 0.3) !important;
+    }
+    
+    .stLinkButton > a:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(0, 119, 181, 0.4) !important;
+    }
+    
+    /* Popover Styling */
+    .stPopover {
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Animation for loading */
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .stSpinner {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    /* Custom spacing */
+    .element-container {
+        margin-bottom: 1rem;
+    }
+    
+    /* Remove default Streamlit branding adjustments */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
 
-# Add mode selector
-analysis_mode = st.radio(
-    "Choose Analysis Mode:",
-    ["Single Candidate", "Batch Processing (up to 5 files)"],
-    horizontal=True
+def clear_session():
+    """Clear all session state data"""
+    keys_to_clear = ["last_report", "linkedin_url", "batch_reports", "batch_job_desc"]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+
+# ---------- UI ----------
+st.set_page_config(
+    page_title="ResumeAlign - AI Resume Analyzer", 
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    page_icon="🎯"
 )
 
-if analysis_mode == "Single Candidate":
-    # Original single candidate interface
-    st.markdown("### 🔗 LinkedIn Helpers")
+# Apply custom CSS
+apply_custom_css()
+
+# Header Section
+st.markdown("""
+<div class="main-header">
+    <h1 class="main-title">ResumeAlign</h1>
+    <p class="main-subtitle">AI-Powered Resume & CV Analysis Platform</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Clear Session Button
+col1, col2, col3 = st.columns([6, 1, 1])
+with col3:
+    if st.button("🔄 Clear Session", help="Clear all data and start fresh"):
+        clear_session()
+        st.rerun()
+
+# Add mode selector with enhanced styling
+st.markdown("""
+<div class="analysis-card">
+    <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">Choose Analysis Mode</h3>
+</div>
+""", unsafe_allow_html=True)
+
+analysis_mode = st.radio(
+    "",
+    ["🧑‍💼 Single Candidate Analysis", "📁 Batch Processing (up to 5 files)"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+if analysis_mode == "🧑‍💼 Single Candidate Analysis":
+    # Single candidate interface with enhanced design
+    st.markdown("""
+    <div class="analysis-card">
+        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">🔗 LinkedIn Profile Helper</h3>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with st.popover("ℹ️ How to use the URL", use_container_width=False):
-        st.markdown(
-            "**Step-by-step (no copy-paste needed):**<br>"
-            "1. Paste the candidate's LinkedIn URL -- the URL is **automatically detected**<br>"
-            "2. Click **📄 Save to PDF (LinkedIn)** to open the exact profile page<br>"
-            "3. On the profile page, click **More → Save to PDF**<br>"
-            "4. Upload the downloaded PDF instead of copying text",
-            unsafe_allow_html=True
-        )
+    # LinkedIn helper section
+    st.markdown('<div class="linkedin-section">', unsafe_allow_html=True)
+    
+    with st.popover("ℹ️ How to use LinkedIn URL", use_container_width=False):
+        st.markdown("""
+        **Step-by-step Guide:**
+        
+        1. **Paste LinkedIn URL** - The URL is automatically detected
+        2. **Click 'Save to PDF'** - Opens the exact profile page  
+        3. **On LinkedIn page** - Click **More → Save to PDF**
+        4. **Upload PDF** - Upload the downloaded PDF file
+        
+        💡 **Tip:** This method provides the most accurate analysis!
+        """)
     
     col1, col2 = st.columns([4, 2])
-    
     with col1:
-        profile_url = st.text_input("", placeholder="https://linkedin.com/in/...", label_visibility="collapsed")
+        profile_url = st.text_input(
+            "LinkedIn Profile URL", 
+            placeholder="https://linkedin.com/in/candidate-name",
+            help="Paste the candidate's LinkedIn profile URL here"
+        )
     
     with col2:
         target = profile_url.strip() if profile_url.strip() else "https://linkedin.com"
-        st.link_button("📄 Save to PDF (LinkedIn)", target, use_container_width=True)
+        st.link_button("📱 Open LinkedIn Profile", target, use_container_width=True)
     
-    with st.popover("📋 Copy-Paste Guide", use_container_width=False):
-        st.markdown(
-            "**Sections to copy:**<br>"
-            "1. Name & Headline<br>"
-            "2. About<br>"
-            "3. Experience<br>"
-            "4. Skills<br>"
-            "5. Education<br>"
-            "6. Licenses & Certifications",
-            unsafe_allow_html=True
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Copy-paste guide
+    with st.popover("📋 Manual Copy-Paste Guide", use_container_width=False):
+        st.markdown("""
+        **Essential LinkedIn Sections to Copy:**
+        
+        ✅ **Name & Professional Headline**  
+        ✅ **About Section** (complete summary)  
+        ✅ **Experience** (all positions with descriptions)  
+        ✅ **Skills & Endorsements**  
+        ✅ **Education** (degrees, institutions, dates)  
+        ✅ **Certifications & Licenses**  
+        
+        **Pro Tips:**
+        - Copy each section completely for better analysis
+        - Include job descriptions and achievements
+        - Don't forget skills and endorsements
+        """)
+    
+    # Main analysis form
+    st.markdown("""
+    <div class="analysis-card">
+        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">📊 Candidate Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("single_analyzer", clear_on_submit=False):
+        job_desc = st.text_area(
+            "📝 Job Description", 
+            height=250,
+            placeholder="Paste the complete job description here...\n\nInclude:\n• Job title and department\n• Key responsibilities\n• Required qualifications\n• Preferred skills\n• Experience requirements",
+            help="Paste the full job description for accurate matching analysis"
         )
-    
-    st.markdown(
-        '<style>[data-testid="stTextInput"] > div > div > input {border: 2px solid #007BFF !important; border-radius: 6px;}</style>',
-        unsafe_allow_html=True,
-    )
-    
-    with st.form("analyzer"):
-        job_desc = st.text_area("Job Description (paste as-is)", height=250)
-        profile_text = st.text_area("LinkedIn / CV Text (paste as-is)", height=300)
-        uploaded = st.file_uploader("OR upload PDF / DOCX CV (optional)", type=["pdf", "docx"])
         
-        submitted = st.form_submit_button("Analyze", type="primary")
+        profile_text = st.text_area(
+            "👤 Candidate Profile / LinkedIn Text", 
+            height=300,
+            placeholder="Paste the candidate's LinkedIn profile or CV text here...\n\nInclude all relevant sections:\n• Professional summary\n• Work experience\n• Skills and endorsements\n• Education and certifications",
+            help="Copy and paste text from LinkedIn profile or CV"
+        )
         
-        if submitted:
-            if not job_desc:
-                st.error("Job Description is required.")
-                st.stop()
+        uploaded_file = st.file_uploader(
+            "📎 Or Upload CV/Resume File (Optional)", 
+            type=["pdf", "docx"],
+            help="Upload a PDF or Word document instead of copy-pasting text"
+        )
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            submitted = st.form_submit_button("🚀 Analyze Candidate", type="primary", use_container_width=True)
+    
+    if submitted:
+        if not job_desc.strip():
+            st.error("❌ Job Description is required for analysis.")
+            st.stop()
+        
+        if not profile_text.strip() and not uploaded_file:
+            st.error("❌ Please provide either candidate text or upload a CV file.")
+            st.stop()
+        
+        # Extract file text if uploaded
+        file_text = extract_text(uploaded_file) if uploaded_file else ""
+        
+        # Show processing animation
+        with st.spinner("🤖 AI is analyzing the candidate profile..."):
+            progress_bar = st.progress(0)
+            for i in range(100):
+                time.sleep(0.01)
+                progress_bar.progress(i + 1)
             
-            file_text = extract_text(uploaded)
-            
-            with st.spinner("Analyzing with Gemini Flash 2.5..."):
-                report, error = analyze_single_candidate(job_desc, profile_text, file_text)
-            
-            if error:
-                st.error(f"Analysis error: {error}")
-                st.stop()
-            
-            st.session_state["last_report"] = report
-            st.session_state["linkedin_url"] = profile_url.strip()
+            report, error = analyze_single_candidate(job_desc, profile_text, file_text)
+        
+        if error:
+            st.error(f"❌ Analysis error: {error}")
+            st.stop()
+        
+        # Store results
+        st.session_state["last_report"] = report
+        st.session_state["linkedin_url"] = profile_url.strip()
+        
+        st.success("✅ Analysis completed successfully!")
 
 else:
-    # Batch processing interface
-    st.markdown("### 📁 Batch Processing Mode")
-    st.info("Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.")
+    # Batch processing interface with enhanced design
+    st.markdown("""
+    <div class="analysis-card">
+        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">📁 Batch Processing Mode</h3>
+        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%); 
+                    padding: 1rem; border-radius: 12px; border-left: 4px solid #3b82f6;">
+            <p style="margin: 0; color: #1e40af; font-weight: 500;">
+                📋 Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with st.form("batch_analyzer"):
-        job_desc = st.text_area("Job Description (paste as-is)", height=250)
-        
-        uploaded_files = st.file_uploader(
-            "Upload CV files (PDF / DOCX)",
-            type=["pdf", "docx"],
-            accept_multiple_files=True,
-            help="Select up to 5 files for batch processing"
+    with st.form("batch_analyzer", clear_on_submit=False):
+        job_desc = st.text_area(
+            "📝 Job Description", 
+            height=250,
+            placeholder="Paste the complete job description here...\n\nThis will be used to analyze all uploaded CVs",
+            help="All CV files will be analyzed against this job description"
         )
         
-        batch_submitted = st.form_submit_button("Analyze Batch", type="primary")
+        uploaded_files = st.file_uploader(
+            "📎 Upload CV Files (PDF / DOCX)",
+            type=["pdf", "docx"],
+            accept_multiple_files=True,
+            help="Select up to 5 CV files for batch processing"
+        )
         
-        if batch_submitted:
-            if not job_desc:
-                st.error("Job Description is required.")
-                st.stop()
-            
-            if not uploaded_files:
-                st.error("Please upload at least one CV file.")
-                st.stop()
-            
-            if len(uploaded_files) > 5:
-                st.error("Maximum 5 files allowed for batch processing.")
-                st.stop()
-            
-            # Process batch
-            batch_reports = []
+        if uploaded_files:
+            st.info(f"📄 **{len(uploaded_files)} files selected:** {', '.join([f.name for f in uploaded_files])}")
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            batch_submitted = st.form_submit_button("🚀 Analyze Batch", type="primary", use_container_width=True)
+    
+    if batch_submitted:
+        if not job_desc.strip():
+            st.error("❌ Job Description is required for batch analysis.")
+            st.stop()
+        
+        if not uploaded_files:
+            st.error("❌ Please upload at least one CV file.")
+            st.stop()
+        
+        if len(uploaded_files) > 5:
+            st.error("❌ Maximum 5 files allowed for batch processing.")
+            st.stop()
+        
+        # Process batch with enhanced UI
+        batch_reports = []
+        
+        # Create progress tracking
+        progress_container = st.container()
+        with progress_container:
+            st.markdown("### 🔄 Processing Files...")
             progress_bar = st.progress(0)
             status_text = st.empty()
             
+            # Process each file
             for i, uploaded_file in enumerate(uploaded_files):
-                status_text.text(f"Analyzing {uploaded_file.name}... ({i+1}/{len(uploaded_files)})")
+                status_text.markdown(f"**Processing:** `{uploaded_file.name}` ({i+1}/{len(uploaded_files)})")
                 
                 file_text = extract_text(uploaded_file)
                 if not file_text.strip():
-                    st.warning(f"Could not extract text from {uploaded_file.name}. Skipping...")
+                    st.warning(f"⚠️ Could not extract text from `{uploaded_file.name}`. Skipping...")
+                    progress_bar.progress((i + 1) / len(uploaded_files))
                     continue
                 
-                with st.spinner(f"Processing {uploaded_file.name}..."):
-                    # First, get the AI analysis
+                # Analyze with AI
+                with st.spinner(f"🤖 AI analyzing {uploaded_file.name}..."):
                     report, error = analyze_single_candidate(job_desc, "", file_text)
-                    
-                    if error:
-                        st.error(f"Error analyzing {uploaded_file.name}: {error}")
-                        continue
-                    
-                    # Enhanced candidate name extraction for batch processing
-                    # Method 1: Try to extract from AI report (most reliable)
-                    candidate_name = extract_candidate_name_from_ai_report(report)
-                    
-                    # Method 2: Fallback to traditional extraction if AI method fails
-                    if not candidate_name or candidate_name == "Unknown Candidate":
-                        candidate_name = extract_candidate_name(file_text)
-                    
-                    # Debug display for testing
-                    st.info(f"✅ Extracted name for {uploaded_file.name}: '{candidate_name}'")
-                    
-                    batch_reports.append({
-                        'report': report,
-                        'filename': uploaded_file.name,
-                        'candidate_name': candidate_name
-                    })
+                
+                if error:
+                    st.error(f"❌ Error analyzing `{uploaded_file.name}`: {error}")
+                    progress_bar.progress((i + 1) / len(uploaded_files))
+                    continue
+                
+                # Extract candidate name
+                candidate_name = extract_candidate_name_from_ai_report(report)
+                if not candidate_name or candidate_name == "Unknown Candidate":
+                    candidate_name = extract_candidate_name(file_text)
+                
+                # Show extraction result
+                st.success(f"✅ **Processed:** `{uploaded_file.name}` → **Candidate:** `{candidate_name}`")
+                
+                batch_reports.append({
+                    'report': report,
+                    'filename': uploaded_file.name,
+                    'candidate_name': candidate_name
+                })
                 
                 progress_bar.progress((i + 1) / len(uploaded_files))
-                time.sleep(0.5)  # Small delay to avoid rate limiting
+                time.sleep(0.3)  # Small delay for better UX
             
-            status_text.text("Analysis complete!")
-            
-            if batch_reports:
-                st.session_state["batch_reports"] = batch_reports
-                st.session_state["batch_job_desc"] = job_desc
+            status_text.markdown("✅ **Batch processing completed!**")
+        
+        if batch_reports:
+            st.session_state["batch_reports"] = batch_reports
+            st.session_state["batch_job_desc"] = job_desc
 
 # Display results for single candidate
-if "last_report" in st.session_state and analysis_mode == "Single Candidate":
+if "last_report" in st.session_state and analysis_mode == "🧑‍💼 Single Candidate Analysis":
     report = st.session_state["last_report"]
-    st.success("Report ready!")
     
+    st.markdown("""
+    <div class="analysis-card">
+        <h3 style="color: #059669; margin-bottom: 1rem; font-weight: 600;">✅ Analysis Results</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Download buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        pdf_data = build_pdf(report, st.session_state.get("linkedin_url", ""))
+        st.download_button(
+            "📄 Download PDF Report", 
+            data=pdf_data, 
+            file_name=f"ResumeAlign_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", 
+            mime="application/pdf",
+            use_container_width=True
+        )
+    
+    with col2:
+        st.download_button(
+            "💾 Download JSON Data", 
+            data=json.dumps(report, indent=2), 
+            file_name=f"ResumeAlign_Data_{datetime.now().strftime('%Y%m%d_%H%M')}.json", 
+            mime="application/json",
+            use_container_width=True
+        )
+    
+    # Results display
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    
+    # Score display
+    score = report['alignment_score']
+    percentage = int((score / 10) * 100)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("🎯 Alignment Score", f"{percentage}%", f"{score}/10")
+    with col2:
+        experience = report['experience_years']['raw_estimate']
+        confidence = report['experience_years']['confidence']
+        st.metric("💼 Experience Level", experience, f"{confidence} confidence")
+    with col3:
+        recommendation = report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
+        st.metric("📋 Recommendation", recommendation)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Detailed analysis
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    st.markdown("### 📝 **Candidate Summary**")
+    st.write(report["candidate_summary"])
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Strengths and improvements
     col1, col2 = st.columns(2)
     
     with col1:
-        st.download_button("📄 Download PDF Report", data=build_pdf(report, st.session_state.get("linkedin_url", "")), file_name="ResumeAlign_Report.pdf", mime="application/pdf")
+        st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+        st.markdown("### ✅ **Key Strengths**")
+        for i, strength in enumerate(report["strengths"], 1):
+            st.markdown(f"**{i}.** {strength}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.download_button("💾 Download JSON", data=json.dumps(report, indent=2), file_name="ResumeAlign_Report.json", mime="application/json")
+        st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+        st.markdown("### 🎯 **Areas for Development**")
+        for i, area in enumerate(report["areas_for_improvement"], 1):
+            st.markdown(f"**{i}.** {area}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    st.subheader("Formatted Report")
-    st.metric("Alignment Score", f"{report['alignment_score']} / 10")
-    st.write("**Summary:**", report["candidate_summary"])
+    # Interview questions
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    st.markdown("### 🤔 **Suggested Interview Questions**")
+    for i, question in enumerate(report["suggested_interview_questions"], 1):
+        st.markdown(f"**{i}.** {question}")
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.write("**Strengths:**")
-    for s in report["strengths"]:
-        st.write("-", s)
-    
-    st.write("**Areas for Improvement:**")
-    for a in report["areas_for_improvement"]:
-        st.write("-", a)
-    
-    st.write("**Interview Questions:**")
-    for i, q in enumerate(report["suggested_interview_questions"], 1):
-        st.write(f"{i}.", q)
-    
-    st.write("**Recommendation:**", report["next_round_recommendation"])
+    # Final recommendation
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    st.markdown("### 🎯 **Final Recommendation**")
+    st.markdown(f"**Decision:** {report['next_round_recommendation']}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Display results for batch processing
-if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (up to 5 files)":
+if "batch_reports" in st.session_state and analysis_mode == "📁 Batch Processing (up to 5 files)":
     batch_reports = st.session_state["batch_reports"]
     job_desc = st.session_state["batch_job_desc"]
     
-    st.success(f"Batch analysis complete! Processed {len(batch_reports)} candidates.")
+    st.markdown(f"""
+    <div class="analysis-card">
+        <h3 style="color: #059669; margin-bottom: 1rem; font-weight: 600;">
+            ✅ Batch Analysis Complete - {len(batch_reports)} Candidates Processed
+        </h3>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Download options
     col1, col2 = st.columns(2)
-    
     with col1:
         zip_data = create_batch_zip(batch_reports, job_desc)
         st.download_button(
             "📦 Download All Reports (ZIP)",
             data=zip_data,
             file_name=f"ResumeAlign_Batch_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
-            mime="application/zip"
+            mime="application/zip",
+            use_container_width=True
         )
     
     with col2:
@@ -653,6 +1078,7 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
                     "candidate_name": r['candidate_name'],
                     "filename": r['filename'],
                     "alignment_score": r['report']['alignment_score'],
+                    "alignment_percentage": int((r['report']['alignment_score'] / 10) * 100),
                     "recommendation": r['report']['next_round_recommendation'],
                     "experience": r['report']['experience_years']['raw_estimate']
                 } for r in batch_reports
@@ -662,32 +1088,57 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
         st.download_button(
             "📊 Download Summary (JSON)",
             data=json.dumps(summary_json, indent=2),
-            file_name="batch_summary.json",
-            mime="application/json"
+            file_name=f"ResumeAlign_Summary_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True
         )
     
-    # Display summary table
-    st.subheader("Batch Results Summary")
-    summary_data = []
+    # Summary overview
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    st.markdown("### 📊 **Batch Results Overview**")
     
+    # Create enhanced summary data
+    summary_data = []
     for i, report_data in enumerate(batch_reports, 1):
         report = report_data['report']
         candidate_name = report_data['candidate_name']
         filename = report_data['filename']
         
         display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
+        score = report['alignment_score']
+        percentage = int((score / 10) * 100)
+        
+        # Determine status emoji based on score
+        if percentage >= 80:
+            status = "🟢 Excellent"
+        elif percentage >= 60:
+            status = "🟡 Good"
+        elif percentage >= 40:
+            status = "🟠 Fair"
+        else:
+            status = "🔴 Poor"
         
         summary_data.append({
-            "Candidate": f"{i}. {display_name}",
-            "Score": f"{report['alignment_score']}/10",
+            "Rank": f"#{i}",
+            "Candidate": display_name,
+            "Score": f"{percentage}%",
+            "Status": status,
             "Experience": report['experience_years']['raw_estimate'],
-            "Recommendation": report['next_round_recommendation']
+            "Recommendation": report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
         })
     
-    st.table(summary_data)
+    # Sort by score descending
+    summary_data.sort(key=lambda x: int(x["Score"].replace('%', '')), reverse=True)
+    for i, item in enumerate(summary_data, 1):
+        item["Rank"] = f"#{i}"
     
-    # Individual reports
-    st.subheader("Individual Reports")
+    st.dataframe(summary_data, use_container_width=True, hide_index=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Individual candidate details
+    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+    st.markdown("### 👥 **Individual Candidate Reports**")
+    st.markdown('</div>', unsafe_allow_html=True)
     
     for i, report_data in enumerate(batch_reports, 1):
         report = report_data['report']
@@ -695,32 +1146,56 @@ if "batch_reports" in st.session_state and analysis_mode == "Batch Processing (u
         candidate_name = report_data['candidate_name']
         
         display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
+        score = report['alignment_score']
+        percentage = int((score / 10) * 100)
         
-        with st.expander(f"📄 {display_name} ({filename})", expanded=False):
-            col1, col2 = st.columns([1, 3])
+        # Status indicator
+        if percentage >= 80:
+            indicator = "🟢"
+        elif percentage >= 60:
+            indicator = "🟡"
+        elif percentage >= 40:
+            indicator = "🟠"
+        else:
+            indicator = "🔴"
+        
+        with st.expander(f"{indicator} **{display_name}** ({percentage}%) - {filename}", expanded=False):
+            col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Score", f"{report['alignment_score']}/10")
-            
+                st.metric("🎯 Alignment", f"{percentage}%")
             with col2:
-                st.write("**Recommendation:**", report['next_round_recommendation'])
+                st.metric("💼 Experience", report['experience_years']['raw_estimate'])
+            with col3:
+                recommendation = report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
+                st.metric("📋 Decision", recommendation)
             
-            st.write("**Summary:**", report["candidate_summary"])
+            st.markdown("**📝 Summary:**")
+            st.write(report["candidate_summary"])
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**Strengths:**")
-                for s in report["strengths"]:
-                    st.write("-", s)
+                st.markdown("**✅ Strengths:**")
+                for strength in report["strengths"]:
+                    st.markdown(f"• {strength}")
             
             with col2:
-                st.write("**Areas for Improvement:**")
-                for a in report["areas_for_improvement"]:
-                    st.write("-", a)
+                st.markdown("**🎯 Development Areas:**")
+                for area in report["areas_for_improvement"]:
+                    st.markdown(f"• {area}")
             
-            st.write("**Interview Questions:**")
-            for j, q in enumerate(report["suggested_interview_questions"], 1):
-                st.write(f"{j}. {q}")
+            st.markdown("**🤔 Interview Questions:**")
+            for j, question in enumerate(report["suggested_interview_questions"], 1):
+                st.markdown(f"{j}. {question}")
             
+            st.markdown("**🎯 Final Recommendation:**")
+            st.info(report['next_round_recommendation'])
 
+# Footer
+st.markdown("""
+<div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem;">
+    <p>© 2025 ResumeAlign - AI-Powered Resume Analysis Platform</p>
+    <p>Built with ❤️ using Streamlit & Google Gemini AI</p>
+</div>
+""", unsafe_allow_html=True)
