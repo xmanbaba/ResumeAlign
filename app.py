@@ -439,7 +439,7 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
         return None, str(e)
 
 def apply_custom_css():
-    """Apply modern CSS styling with ResumeAlign brand colors"""
+    """Apply modern CSS styling with ResumeAlign brand colors and requested improvements"""
     st.markdown("""
     <style>
     /* Import Google Fonts */
@@ -452,23 +452,53 @@ def apply_custom_css():
         min-height: 100vh;
     }
     
+    /* Logo Header Container */
+    .logo-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+        padding: 1rem 2rem;
+        border-bottom: 2px solid #E53E3E;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(229, 62, 62, 0.1);
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .logo-image {
+        height: 50px;
+        width: auto;
+    }
+    
+    .logo-text {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #E53E3E;
+        margin: 0;
+    }
+    
     /* Main Container */
     .main > div {
-        padding-top: 2rem;
+        padding-top: 1rem;
         padding-bottom: 2rem;
         max-width: 1200px;
         margin: 0 auto;
         background: #ffffff;
     }
     
-    /* Header Styling */
+    /* Header Styling - Reduced height */
     .main-header {
         background: #ffffff;
-        border: 2px solid #E53E3E;
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 20px rgba(229, 62, 62, 0.1);
+        border: 2px solid #000000;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
     
     .main-title {
@@ -476,7 +506,7 @@ def apply_custom_css():
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 700;
         text-align: center;
         margin: 0;
@@ -486,36 +516,63 @@ def apply_custom_css():
     .main-subtitle {
         text-align: center;
         color: #2D3748;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         margin-top: 0.5rem;
         font-weight: 400;
     }
     
-    /* Card Styling */
+    /* Feature Button Cards - Black borders and reduced height */
+    .feature-card {
+        background: #ffffff;
+        border: 2px solid #000000;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        min-height: auto;
+        height: auto;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+        border-color: #E53E3E;
+    }
+    
+    .feature-card h3 {
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    /* Analysis Cards - Black borders and compact */
     .analysis-card {
         background: #ffffff;
-        border: 2px solid #f7fafc;
-        border-radius: 16px;
-        padding: 2rem;
+        border: 2px solid #000000;
+        border-radius: 12px;
+        padding: 1.5rem;
         margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(45, 55, 72, 0.08);
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
         transition: all 0.3s ease;
     }
     
     .analysis-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(45, 55, 72, 0.12);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
         border-color: #E53E3E;
     }
     
-    /* Mode Selector */
+    /* Mode Selector - Black borders */
     .stRadio > label {
         background: #ffffff;
-        padding: 1rem;
-        border-radius: 12px;
-        margin: 0.5rem 0;
-        border: 2px solid #e2e8f0;
+        padding: 0.8rem 1.2rem;
+        border-radius: 8px;
+        margin: 0.3rem 0;
+        border: 2px solid #000000;
         transition: all 0.3s ease;
+        min-height: auto;
     }
     
     .stRadio > label:hover {
@@ -523,11 +580,11 @@ def apply_custom_css():
         background: rgba(229, 62, 62, 0.05);
     }
     
-    /* Form Elements */
+    /* Form Elements - Black borders */
     .stTextArea textarea, .stTextInput input {
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 12px !important;
-        padding: 1rem !important;
+        border: 2px solid #000000 !important;
+        border-radius: 8px !important;
+        padding: 0.8rem !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
         background: #ffffff !important;
@@ -538,49 +595,57 @@ def apply_custom_css():
         box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1) !important;
     }
     
-    /* Buttons */
+    /* Compact text areas */
+    .stTextArea textarea {
+        min-height: 120px !important;
+    }
+    
+    /* Buttons - Reduced height */
     .stButton > button {
         background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%) !important;
         color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 2rem !important;
+        border: 2px solid #000000 !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1.5rem !important;
         font-weight: 600 !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(229, 62, 62, 0.3) !important;
+        box-shadow: 0 2px 10px rgba(229, 62, 62, 0.3) !important;
+        min-height: auto !important;
+        height: auto !important;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(229, 62, 62, 0.4) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 15px rgba(229, 62, 62, 0.4) !important;
         background: linear-gradient(135deg, #C53030 0%, #E53E3E 100%) !important;
     }
     
     .stDownloadButton > button {
         background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%) !important;
         color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 2rem !important;
+        border: 2px solid #000000 !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1.5rem !important;
         font-weight: 600 !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(45, 55, 72, 0.3) !important;
+        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.3) !important;
+        min-height: auto !important;
     }
     
     .stDownloadButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(45, 55, 72, 0.4) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 15px rgba(45, 55, 72, 0.4) !important;
         background: linear-gradient(135deg, #1A202C 0%, #2D3748 100%) !important;
     }
     
-    /* File Uploader */
+    /* File Uploader - Black border */
     .stFileUploader {
         background: #ffffff;
-        border: 2px dashed #e2e8f0;
-        border-radius: 12px;
-        padding: 2rem;
+        border: 2px solid #000000;
+        border-radius: 8px;
+        padding: 1.5rem;
         text-align: center;
         transition: all 0.3s ease;
     }
@@ -590,49 +655,46 @@ def apply_custom_css():
         background: rgba(229, 62, 62, 0.02);
     }
     
-    /* Metrics */
+    /* Metrics - Black borders and compact */
     .stMetric {
         background: #ffffff;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.05);
+        padding: 1rem;
+        border-radius: 8px;
+        border: 2px solid #000000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     
     /* Progress Bar */
     .stProgress .css-1cpxqw2 {
         background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-        border-radius: 10px;
+        border-radius: 6px;
     }
     
-    /* Info/Success/Error Messages */
+    /* Info/Success/Error Messages - Black borders */
     .stAlert {
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.08);
+        border-radius: 8px;
+        border: 2px solid #000000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
     
-    /* Sidebar */
-    .css-1d391kg {
-        background: #ffffff;
-    }
-    
-    /* Tables */
+    /* Tables - Black borders */
     .stTable {
         background: #ffffff;
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
-        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.05);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 2px solid #000000;
     }
     
-    /* Expander */
+    /* Expander - Black borders and compact */
     .streamlit-expanderHeader {
         background: #ffffff;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        border: 2px solid #000000;
         font-weight: 600;
         color: #2D3748;
+        padding: 0.8rem 1rem;
+        min-height: auto;
     }
     
     .streamlit-expanderHeader:hover {
@@ -640,40 +702,100 @@ def apply_custom_css():
         background: rgba(229, 62, 62, 0.02);
     }
     
-    /* LinkedIn Helper Section */
+    /* LinkedIn Helper Section - Black border */
     .linkedin-section {
         background: rgba(0, 119, 181, 0.05);
-        border: 2px solid rgba(0, 119, 181, 0.2);
-        border-radius: 16px;
-        padding: 1.5rem;
+        border: 2px solid #000000;
+        border-radius: 12px;
+        padding: 1.2rem;
         margin: 1rem 0;
     }
     
-    /* Link Button Styling */
+    /* Link Button Styling - Black border */
     .stLinkButton > a {
         background: linear-gradient(135deg, #0077b5 0%, #005582 100%) !important;
         color: white !important;
         text-decoration: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 2rem !important;
+        border: 2px solid #000000 !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1.5rem !important;
         font-weight: 600 !important;
         display: block !important;
         text-align: center !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(0, 119, 181, 0.3) !important;
+        box-shadow: 0 2px 10px rgba(0, 119, 181, 0.3) !important;
+        min-height: auto !important;
     }
     
     .stLinkButton > a:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(0, 119, 181, 0.4) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 15px rgba(0, 119, 181, 0.4) !important;
     }
     
-    /* Popover Styling */
+    /* Popover Styling - Black borders */
     .stPopover {
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(45, 55, 72, 0.15);
-        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.15);
+        border: 2px solid #000000;
         background: #ffffff;
+    }
+    
+    /* Clear Button Styling */
+    .clear-button {
+        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
+        border: 2px solid #000000 !important;
+    }
+    
+    .clear-button:hover {
+        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
+    }
+    
+    /* Success/Error Styling - Black borders */
+    .stSuccess {
+        background: rgba(72, 187, 120, 0.1);
+        border: 2px solid #000000;
+        border-left: 4px solid #48bb78;
+        color: #22543d;
+    }
+    
+    .stError {
+        background: rgba(229, 62, 62, 0.1);
+        border: 2px solid #000000;
+        border-left: 4px solid #E53E3E;
+        color: #742a2a;
+    }
+    
+    .stInfo {
+        background: rgba(49, 130, 206, 0.1);
+        border: 2px solid #000000;
+        border-left: 4px solid #3182ce;
+        color: #2c5aa0;
+    }
+    
+    .stWarning {
+        background: rgba(237, 137, 54, 0.1);
+        border: 2px solid #000000;
+        border-left: 4px solid #ed8936;
+        color: #9c4221;
+    }
+    
+    /* Form containers - Black borders */
+    .stForm {
+        border: 2px solid #000000;
+        border-radius: 12px;
+        padding: 1.5rem;
+        background: #ffffff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Compact spacing */
+    .element-container {
+        margin-bottom: 0.8rem;
+    }
+    
+    /* Reduce column gaps */
+    .row-widget {
+        gap: 0.5rem;
     }
     
     /* Animation for loading */
@@ -685,45 +807,6 @@ def apply_custom_css():
     
     .stSpinner {
         animation: pulse 2s ease-in-out infinite;
-    }
-    
-    /* Custom spacing */
-    .element-container {
-        margin-bottom: 1rem;
-    }
-    
-    /* Clear Button Styling */
-    .clear-button {
-        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
-    }
-    
-    .clear-button:hover {
-        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
-    }
-    
-    /* Success/Error Styling */
-    .stSuccess {
-        background: rgba(72, 187, 120, 0.1);
-        border-left: 4px solid #48bb78;
-        color: #22543d;
-    }
-    
-    .stError {
-        background: rgba(229, 62, 62, 0.1);
-        border-left: 4px solid #E53E3E;
-        color: #742a2a;
-    }
-    
-    .stInfo {
-        background: rgba(49, 130, 206, 0.1);
-        border-left: 4px solid #3182ce;
-        color: #2c5aa0;
-    }
-    
-    .stWarning {
-        background: rgba(237, 137, 54, 0.1);
-        border-left: 4px solid #ed8936;
-        color: #9c4221;
     }
     
     /* Remove default Streamlit branding adjustments */
@@ -751,35 +834,52 @@ st.set_page_config(
 # Apply custom CSS
 apply_custom_css()
 
-# Header Section
+# Logo Header Section
+st.markdown("""
+<div class="logo-header">
+    <div class="logo-container">
+        <svg width="50" height="35" viewBox="0 0 430 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="logo-image">
+            <rect width="430" height="300" fill="white"/>
+            <path d="M82.5 267.5L172 187.5H102L82.5 267.5Z" fill="#E53E3E"/>
+            <path d="M82.5 267.5V187.5H172C172 187.5 172 154.167 172 137.5C172 120.833 155.167 104 144.5 104C133.833 104 82.5 104 82.5 104V267.5Z" fill="#E53E3E"/>
+            <path d="M102 167H154C154 167 162 154 162 148C162 142 154 129 154 129H102V167Z" fill="white"/>
+            <path d="M117.5 157L126.5 148L141 162.5L134 169.5L117.5 157Z" fill="#233A54"/>
+            <text x="185" y="175" font-family="Segoe UI, Tahoma, Geneva, Verdana, sans-serif" font-size="42" font-weight="600" fill="#2D3748">ResumeAlign</text>
+        </svg>
+    </div>
+    <div>
+        <button onclick="clearSession()" style="
+            background: linear-gradient(135deg, #718096 0%, #4A5568 100%);
+            color: white;
+            border: 2px solid #000000;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        ">🔄 Clear Session</button>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Main Title Section
 st.markdown("""
 <div class="main-header">
-    <h1 class="main-title">ResumeAlign</h1>
     <p class="main-subtitle">AI-Powered Resume & CV Analysis Platform</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Clear Session Button with custom styling
+# Clear Session Button (Streamlit version for functionality)
 col1, col2, col3 = st.columns([6, 1, 1])
 with col3:
     if st.button("🔄 Clear Session", help="Clear all data and start fresh", key="clear_btn"):
         clear_session()
         st.rerun()
 
-# Add custom CSS for clear button
+# Mode Selector
 st.markdown("""
-<style>
-[data-testid="stButton"][data-baseweb="button"] button[kind="secondary"]:has-text("🔄 Clear Session") {
-    background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
-    color: white !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Add mode selector with enhanced styling
-st.markdown("""
-<div class="analysis-card">
-    <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">Choose Analysis Mode</h3>
+<div class="feature-card">
+    <h3>Choose Analysis Mode</h3>
 </div>
 """, unsafe_allow_html=True)
 
@@ -791,14 +891,13 @@ analysis_mode = st.radio(
 )
 
 if analysis_mode == "🧑‍💼 Single Candidate Analysis":
-    # Single candidate interface with enhanced design
+    # LinkedIn Profile Helper - Black bordered section
     st.markdown("""
-    <div class="analysis-card">
-        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">🔗 LinkedIn Profile Helper</h3>
+    <div class="feature-card">
+        <h3>🔗 LinkedIn Profile Helper</h3>
     </div>
     """, unsafe_allow_html=True)
     
-    # LinkedIn helper section
     st.markdown('<div class="linkedin-section">', unsafe_allow_html=True)
     
     with st.popover("ℹ️ How to use LinkedIn URL", use_container_width=False):
@@ -847,22 +946,22 @@ if analysis_mode == "🧑‍💼 Single Candidate Analysis":
     
     # Main analysis form
     st.markdown("""
-    <div class="analysis-card">
-        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">📊 Candidate Analysis</h3>
+    <div class="feature-card">
+        <h3>📊 Candidate Analysis</h3>
     </div>
     """, unsafe_allow_html=True)
     
     with st.form("single_analyzer", clear_on_submit=False):
         job_desc = st.text_area(
             "📝 Job Description", 
-            height=250,
+            height=200,
             placeholder="Paste the complete job description here...\n\nInclude:\n• Job title and department\n• Key responsibilities\n• Required qualifications\n• Preferred skills\n• Experience requirements",
             help="Paste the full job description for accurate matching analysis"
         )
         
         profile_text = st.text_area(
             "👤 Candidate Profile / LinkedIn Text", 
-            height=300,
+            height=220,
             placeholder="Paste the candidate's LinkedIn profile or CV text here...\n\nInclude all relevant sections:\n• Professional summary\n• Work experience\n• Skills and endorsements\n• Education and certifications",
             help="Copy and paste text from LinkedIn profile or CV"
         )
@@ -909,12 +1008,12 @@ if analysis_mode == "🧑‍💼 Single Candidate Analysis":
         st.success("✅ Analysis completed successfully!")
 
 else:
-    # Batch processing interface with enhanced design
+    # Batch processing interface
     st.markdown("""
-    <div class="analysis-card">
-        <h3 style="color: #1e293b; margin-bottom: 1rem; font-weight: 600;">📁 Batch Processing Mode</h3>
+    <div class="feature-card">
+        <h3>📁 Batch Processing Mode</h3>
         <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%); 
-                    padding: 1rem; border-radius: 12px; border-left: 4px solid #3b82f6;">
+                    padding: 1rem; border-radius: 8px; border: 2px solid #000000; margin-top: 0.5rem;">
             <p style="margin: 0; color: #1e40af; font-weight: 500;">
                 📋 Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.
             </p>
@@ -925,7 +1024,7 @@ else:
     with st.form("batch_analyzer", clear_on_submit=False):
         job_desc = st.text_area(
             "📝 Job Description", 
-            height=250,
+            height=200,
             placeholder="Paste the complete job description here...\n\nThis will be used to analyze all uploaded CVs",
             help="All CV files will be analyzed against this job description"
         )
@@ -1247,7 +1346,7 @@ if "batch_reports" in st.session_state and analysis_mode == "📁 Batch Processi
 
 # Footer
 st.markdown("""
-<div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem;">
+<div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem; border-top: 2px solid #000000; margin-top: 2rem;">
     <p>© 2025 ResumeAlign - AI-Powered Resume Analysis Platform</p>
     <p>Built with ❤️ using Streamlit & Google Gemini AI</p>
 </div>
