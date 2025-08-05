@@ -439,7 +439,7 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
         return None, str(e)
 
 def apply_custom_css():
-    """Apply modern CSS styling"""
+    """Apply modern CSS styling with ResumeAlign brand colors"""
     st.markdown("""
     <style>
     /* Import Google Fonts */
@@ -448,7 +448,7 @@ def apply_custom_css():
     /* Global Styles */
     .stApp {
         font-family: 'Inter', sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff;
         min-height: 100vh;
     }
     
@@ -458,21 +458,21 @@ def apply_custom_css():
         padding-bottom: 2rem;
         max-width: 1200px;
         margin: 0 auto;
+        background: #ffffff;
     }
     
     /* Header Styling */
     .main-header {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
+        background: #ffffff;
+        border: 2px solid #E53E3E;
         border-radius: 20px;
         padding: 2rem;
         margin-bottom: 2rem;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(229, 62, 62, 0.1);
     }
     
     .main-title {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -485,7 +485,7 @@ def apply_custom_css():
     
     .main-subtitle {
         text-align: center;
-        color: #64748b;
+        color: #2D3748;
         font-size: 1.2rem;
         margin-top: 0.5rem;
         font-weight: 400;
@@ -493,34 +493,34 @@ def apply_custom_css():
     
     /* Card Styling */
     .analysis-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
+        background: #ffffff;
+        border: 2px solid #f7fafc;
         border-radius: 16px;
         padding: 2rem;
         margin: 1rem 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(45, 55, 72, 0.08);
         transition: all 0.3s ease;
     }
     
     .analysis-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 8px 30px rgba(45, 55, 72, 0.12);
+        border-color: #E53E3E;
     }
     
     /* Mode Selector */
     .stRadio > label {
-        background: rgba(255, 255, 255, 0.9);
+        background: #ffffff;
         padding: 1rem;
         border-radius: 12px;
         margin: 0.5rem 0;
-        border: 2px solid transparent;
+        border: 2px solid #e2e8f0;
         transition: all 0.3s ease;
     }
     
     .stRadio > label:hover {
-        border-color: #667eea;
-        background: rgba(102, 126, 234, 0.1);
+        border-color: #E53E3E;
+        background: rgba(229, 62, 62, 0.05);
     }
     
     /* Form Elements */
@@ -530,17 +530,17 @@ def apply_custom_css():
         padding: 1rem !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        background: rgba(255, 255, 255, 0.9) !important;
+        background: #ffffff !important;
     }
     
     .stTextArea textarea:focus, .stTextInput input:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        border-color: #E53E3E !important;
+        box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1) !important;
     }
     
     /* Buttons */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%) !important;
         color: white !important;
         border: none !important;
         border-radius: 12px !important;
@@ -548,16 +548,17 @@ def apply_custom_css():
         font-weight: 600 !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(229, 62, 62, 0.3) !important;
     }
     
     .stButton > button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+        box-shadow: 0 8px 25px rgba(229, 62, 62, 0.4) !important;
+        background: linear-gradient(135deg, #C53030 0%, #E53E3E 100%) !important;
     }
     
     .stDownloadButton > button {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%) !important;
         color: white !important;
         border: none !important;
         border-radius: 12px !important;
@@ -565,17 +566,18 @@ def apply_custom_css():
         font-weight: 600 !important;
         font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(45, 55, 72, 0.3) !important;
     }
     
     .stDownloadButton > button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
+        box-shadow: 0 8px 25px rgba(45, 55, 72, 0.4) !important;
+        background: linear-gradient(135deg, #1A202C 0%, #2D3748 100%) !important;
     }
     
     /* File Uploader */
     .stFileUploader {
-        background: rgba(255, 255, 255, 0.9);
+        background: #ffffff;
         border: 2px dashed #e2e8f0;
         border-radius: 12px;
         padding: 2rem;
@@ -584,22 +586,22 @@ def apply_custom_css():
     }
     
     .stFileUploader:hover {
-        border-color: #667eea;
-        background: rgba(102, 126, 234, 0.05);
+        border-color: #E53E3E;
+        background: rgba(229, 62, 62, 0.02);
     }
     
     /* Metrics */
     .stMetric {
-        background: rgba(255, 255, 255, 0.9);
+        background: #ffffff;
         padding: 1.5rem;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.05);
     }
     
     /* Progress Bar */
     .stProgress .css-1cpxqw2 {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
         border-radius: 10px;
     }
     
@@ -607,35 +609,41 @@ def apply_custom_css():
     .stAlert {
         border-radius: 12px;
         border: none;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.08);
     }
     
     /* Sidebar */
     .css-1d391kg {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
+        background: #ffffff;
     }
     
     /* Tables */
     .stTable {
-        background: rgba(255, 255, 255, 0.9);
+        background: #ffffff;
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.05);
+        border: 1px solid #e2e8f0;
     }
     
     /* Expander */
     .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.9);
+        background: #ffffff;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid #e2e8f0;
         font-weight: 600;
+        color: #2D3748;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        border-color: #E53E3E;
+        background: rgba(229, 62, 62, 0.02);
     }
     
     /* LinkedIn Helper Section */
     .linkedin-section {
-        background: linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 119, 181, 0.05) 100%);
-        border: 1px solid rgba(0, 119, 181, 0.2);
+        background: rgba(0, 119, 181, 0.05);
+        border: 2px solid rgba(0, 119, 181, 0.2);
         border-radius: 16px;
         padding: 1.5rem;
         margin: 1rem 0;
@@ -663,8 +671,9 @@ def apply_custom_css():
     /* Popover Styling */
     .stPopover {
         border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(45, 55, 72, 0.15);
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
     }
     
     /* Animation for loading */
@@ -681,6 +690,40 @@ def apply_custom_css():
     /* Custom spacing */
     .element-container {
         margin-bottom: 1rem;
+    }
+    
+    /* Clear Button Styling */
+    .clear-button {
+        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
+    }
+    
+    .clear-button:hover {
+        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
+    }
+    
+    /* Success/Error Styling */
+    .stSuccess {
+        background: rgba(72, 187, 120, 0.1);
+        border-left: 4px solid #48bb78;
+        color: #22543d;
+    }
+    
+    .stError {
+        background: rgba(229, 62, 62, 0.1);
+        border-left: 4px solid #E53E3E;
+        color: #742a2a;
+    }
+    
+    .stInfo {
+        background: rgba(49, 130, 206, 0.1);
+        border-left: 4px solid #3182ce;
+        color: #2c5aa0;
+    }
+    
+    .stWarning {
+        background: rgba(237, 137, 54, 0.1);
+        border-left: 4px solid #ed8936;
+        color: #9c4221;
     }
     
     /* Remove default Streamlit branding adjustments */
@@ -716,12 +759,22 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Clear Session Button
+# Clear Session Button with custom styling
 col1, col2, col3 = st.columns([6, 1, 1])
 with col3:
-    if st.button("🔄 Clear Session", help="Clear all data and start fresh"):
+    if st.button("🔄 Clear Session", help="Clear all data and start fresh", key="clear_btn"):
         clear_session()
         st.rerun()
+
+# Add custom CSS for clear button
+st.markdown("""
+<style>
+[data-testid="stButton"][data-baseweb="button"] button[kind="secondary"]:has-text("🔄 Clear Session") {
+    background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
+    color: white !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Add mode selector with enhanced styling
 st.markdown("""
