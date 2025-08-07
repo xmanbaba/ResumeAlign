@@ -1,48 +1,116 @@
-"""
-AI Analysis module for ResumeAlign
-Handles Gemini AI integration for resume analysis
-"""
-
-import json
 import google.generativeai as genai
-import os
+import streamlit as st
+import json
+from typing import Dict, Any, Optional
 
-# Configure Gemini AI
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.5-flash")
+def configure_gemini():
+    """Configure Gemini API"""
+    api_key = st.secrets.get("GEMINI_API_KEY")
+    if not api_key:
+        st.error("Gemini API key not found in secrets!")
+        return None
+    
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-pro')
 
-# System prompt for consistent AI behavior
-SYSTEM_PROMPT = "Use only the text provided. Return valid JSON matching the schema."
+def analyze_resume_job_match(resume_text: str, job_description: str, candidate_name: str) -> Dict[str, Any]:
+    """
+    Analyze resume against job description using Gemini AI
+    """
+    model = configure_gemini()
+    if not model:
+        return None
+    
+    prompt = f"""
+    As an expert HR analyst, analyze this resume against the job description and provide a comprehensive assessment.
 
+    CANDIDATE: {candidate_name}
 
-def build_prompt(jd, profile_text, file_text):
-    """Build the analysis prompt for Gemini AI"""
-    extra = file_text.strip() if file_text.strip() else "None provided"
-    return (
-        "Job Description:\n" + jd + "\n\n"
-        "Candidate Profile / CV:\n" + profile_text + "\n\n"
-        "Extra File Text:\n" + extra + "\n\n"
-        "Return valid JSON:\n"
-        "{\n"
-        ' "alignment_score": <0-10>,\n'
-        ' "experience_years": {"raw_estimate": "<string>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"},\n'
-        ' "candidate_summary": "<300 words>",\n'
-        ' "areas_for_improvement": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        ' "strengths": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        ' "suggested_interview_questions": ["<string>","<string>","<string>","<string>","<string>"],\n'
-        ' "next_round_recommendation": "<Yes|No|Maybe -- brief reason>",\n'
-        ' "sources_used": ["Manual text","File"]\n'
-        '}'
-    )
+    RESUME:
+    {resume_text}
 
+    JOB DESCRIPTION:
+    {job_description}
 
-def analyze_single_candidate(job_desc, profile_text, file_text=""):
-    """Analyze a single candidate and return the report"""
-    prompt = build_prompt(job_desc, profile_text, file_text)
+    Please provide your analysis in the following JSON format:
+    {{
+        "overall_score": <number 0-100>,
+        "skills_score": <number 0-100>,
+        "experience_score": <number 0-100>,
+        "education_score": <number 0-100>,
+        "strengths": ["strength1", "strength2", "strength3"],
+        "weaknesses": ["weakness1", "weakness2", "weakness3"],
+        "missing_skills": ["skill1", "skill2", "skill3"],
+        "recommendations": ["recommendation1", "recommendation2", "recommendation3"],
+        "key_matches": ["match1", "match2", "match3"],
+        "experience_analysis": "detailed analysis of experience relevance",
+        "skills_analysis": "detailed analysis of skills match",
+        "improvement_areas": ["area1", "area2", "area3"],
+        "interview_focus": ["focus1", "focus2", "focus3"],
+        "cultural_fit_notes": "assessment of cultural alignment",
+        "next_steps": "recommended next steps for this candidate"
+    }}
+
+    Ensure all scores are realistic and well-justified. Provide actionable insights.
+    """
     
     try:
-        response = model.generate_content([SYSTEM_PROMPT, prompt])
-        report = json.loads(response.text.strip("```json").strip("```"))
-        return report, None
+        response = model.generate_content(prompt)
+        
+        # Parse JSON response
+        response_text = response.text
+        
+        # Clean up response if it has markdown formatting
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+        
+        analysis = json.loads(response_text)
+        return analysis
+        
+    except json.JSONDecodeError as e:
+        st.error(f"Error parsing AI response: {e}")
+        return None
     except Exception as e:
-        return None, str(e)
+        st.error(f"Error in AI analysis: {e}")
+        return None
+
+def generate_improvement_suggestions(analysis: Dict[str, Any]) -> str:
+    """
+    Generate specific improvement suggestions based on analysis
+    """
+    model = configure_gemini()
+    if not model or not analysis:
+        return ""
+    
+    prompt = f"""
+    Based on this resume analysis, provide specific, actionable improvement suggestions:
+
+    Analysis Results:
+    - Overall Score: {analysis.get('overall_score', 0)}%
+    - Missing Skills: {analysis.get('missing_skills', [])}
+    - Weaknesses: {analysis.get('weaknesses', [])}
+    - Improvement Areas: {analysis.get('improvement_areas', [])}
+
+    Provide 5-7 concrete, actionable steps the candidate can take to improve their profile for this role.
+    Format as a bulleted list with specific actions.
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        st.error(f"Error generating suggestions: {e}")
+        return ""
+
+def validate_analysis_response(analysis: Dict[str, Any]) -> bool:
+    """
+    Validate that the AI response contains required fields
+    """
+    required_fields = [
+        'overall_score', 'skills_score', 'experience_score', 'education_score',
+        'strengths', 'weaknesses', 'missing_skills', 'recommendations'
+    ]
+    
+    return all(field in analysis for field in required_fields)
