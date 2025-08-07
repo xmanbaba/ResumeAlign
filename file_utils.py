@@ -1,40 +1,38 @@
-"""
-File handling utilities for ResumeAlign
-Handles text extraction from PDF and DOCX files
-"""
+import os
+import tempfile
+import streamlit as st
+from typing import Optional
 
-from PyPDF2 import PdfReader
-from docx import Document
+def save_uploaded_file(uploaded_file) -> Optional[str]:
+    """Save uploaded file to temp directory and return file path"""
+    if uploaded_file is not None:
+        try:
+            # Create temp directory if it doesn't exist
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, uploaded_file.name)
+            
+            # Save file
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            return file_path
+        except Exception as e:
+            st.error(f"Error saving file: {str(e)}")
+            return None
+    return None
 
+def cleanup_temp_files(file_paths: list):
+    """Clean up temporary files"""
+    for file_path in file_paths:
+        try:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            st.warning(f"Could not clean up file {file_path}: {str(e)}")
 
-def extract_text(upload):
-    """Extract text from uploaded PDF or DOCX file"""
-    if not upload:
-        return ""
-    
-    if upload.type == "application/pdf":
-        return "\n".join(p.extract_text() or "" for p in PdfReader(upload).pages)
-    
-    if upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return "\n".join(p.text for p in Document(upload).paragraphs)
-    
-    return ""
-
-
-def create_safe_filename(candidate_name, filename, index):
-    """Create a safe filename ensuring uniqueness"""
-    import re
-    
-    if candidate_name and candidate_name != "Unknown Candidate":
-        # Use candidate name as base
-        base_name = candidate_name.replace(' ', '_')
-    else:
-        # Use original filename without extension
-        base_name = filename.rsplit('.', 1)[0]
-    
-    # Remove unsafe characters
-    safe_name = re.sub(r'[<>:"/\\|?*]', '_', base_name)
-    safe_name = re.sub(r'[^\w\-_\.]', '_', safe_name)
-    
-    # Ensure uniqueness by adding index
-    return f"Report_{index:02d}_{safe_name}.pdf"
+def validate_file_type(uploaded_file, allowed_types: list) -> bool:
+    """Validate uploaded file type"""
+    if uploaded_file is not None:
+        file_type = uploaded_file.type
+        return file_type in allowed_types
+    return False
