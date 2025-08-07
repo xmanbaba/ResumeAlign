@@ -1,154 +1,132 @@
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-import streamlit as st
-from datetime import datetime
-import io
-from typing import Dict, Any
+"""
+PDF generation module for ResumeAlign
+Handles PDF report creation and batch ZIP file generation
+"""
 
-def create_analysis_pdf(analysis: Dict[str, Any], candidate_name: str, job_title: str = "") -> bytes:
-    """
-    Create a PDF report of the resume analysis
-    """
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, 
-                          topMargin=72, bottomMargin=18)
+import json
+import zipfile
+from datetime import datetime
+from io import BytesIO
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.units import inch
+from reportlab.lib.colors import blue
+from reportlab.lib.enums import TA_CENTER
+
+from file_utils import create_safe_filename
+
+
+def build_pdf(report, linkedin_url="", candidate_name="", extracted_from_cv=False):
+    """Generate a PDF report for a single candidate"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=inch, bottomMargin=inch)
     
-    # Define styles
+    def add_footer(canvas, doc):
+        canvas.saveState()
+        canvas.drawCentredString(A4[0] / 2, 0.75 * inch, f"© 2025 ResumeAlign -- AI Resume & CV Analyzer | Page {doc.page}")
+        canvas.restoreState()
+    
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        spaceAfter=30,
-        alignment=TA_CENTER,
-        textColor=colors.HexColor('#2E86AB')
-    )
+    title_style = ParagraphStyle("Title", fontSize=16, spaceAfter=12, textColor=blue)
+    normal_style = ParagraphStyle("Normal", fontSize=11, spaceAfter=6)
     
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=16,
-        spaceAfter=12,
-        textColor=colors.HexColor('#2E86AB'),
-        borderWidth=1,
-        borderColor=colors.HexColor('#2E86AB'),
-        borderPadding=5
-    )
+    # Use the provided candidate name, or extract from summary as fallback
+    if not candidate_name and 'candidate_summary' in report:
+        candidate_name = report.get('candidate_summary', '').split(' is ')[0] if ' is ' in report.get('candidate_summary', '') else "Unknown Candidate"
+    elif not candidate_name:
+        candidate_name = "Unknown Candidate"
     
-    normal_style = styles['Normal']
-    normal_style.fontSize = 11
-    normal_style.alignment = TA_JUSTIFY
-    
-    # Build PDF content
-    content = []
-    
-    # Title
-    title_text = f"Resume Analysis Report"
-    if job_title:
-        title_text += f"<br/><font size='16'>{job_title}</font>"
-    content.append(Paragraph(title_text, title_style))
-    content.append(Spacer(1, 20))
-    
-    # Candidate Info
-    content.append(Paragraph(f"<b>Candidate:</b> {candidate_name}", normal_style))
-    content.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", normal_style))
-    content.append(Spacer(1, 30))
-    
-    # Score Summary Table
-    content.append(Paragraph("📊 Score Summary", heading_style))
-    score_data = [
-        ['Metric', 'Score'],
-        ['Overall Match', f"{analysis.get('overall_score', 0)}%"],
-        ['Skills Match', f"{analysis.get('skills_score', 0)}%"],
-        ['Experience Relevance', f"{analysis.get('experience_score', 0)}%"],
-        ['Education Alignment', f"{analysis.get('education_score', 0)}%"]
+    story = [
+        Paragraph("ResumeAlign Analysis Report", title_style),
+        Paragraph(f"<b>Name of Candidate:</b> {candidate_name}", normal_style),
+        Paragraph(f"<b>Review Date:</b> {datetime.now():%d %B %Y}", normal_style),
     ]
     
-    score_table = Table(score_data, colWidths=[3*inch, 2*inch])
-    score_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86AB')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
+    if linkedin_url:
+        story.append(Paragraph(f"<b>LinkedIn URL:</b> {linkedin_url}", normal_style))
     
-    content.append(score_table)
-    content.append(Spacer(1, 30))
+    story.extend([
+        Paragraph(f"<b>Alignment Score:</b> {report['alignment_score']} / 10", title_style),
+        Paragraph(f"<b>Experience Estimate:</b> {report['experience_years']['raw_estimate']} ({report['experience_years']['confidence']} confidence)", normal_style),
+        Paragraph("<b>Summary:</b>", title_style),
+        Paragraph(report.get("candidate_summary", ""), normal_style),
+        Paragraph("<b>Strengths:</b>", title_style),
+    ])
     
-    # Strengths
-    content.append(Paragraph("✅ Key Strengths", heading_style))
-    strengths = analysis.get('strengths', [])
-    for strength in strengths[:5]:  # Limit to top 5
-        content.append(Paragraph(f"• {strength}", normal_style))
-    content.append(Spacer(1, 20))
+    for s in report.get("strengths", []):
+        story.append(Paragraph(f"• {s}", normal_style))
     
-    # Areas for Improvement
-    content.append(Paragraph("🎯 Areas for Improvement", heading_style))
-    weaknesses = analysis.get('weaknesses', [])
-    for weakness in weaknesses[:5]:
-        content.append(Paragraph(f"• {weakness}", normal_style))
-    content.append(Spacer(1, 20))
+    story.append(Paragraph("<b>Areas for Improvement:</b>", title_style))
+    for a in report.get("areas_for_improvement", []):
+        story.append(Paragraph(f"• {a}", normal_style))
     
-    # Missing Skills
-    content.append(Paragraph("🔍 Missing Skills", heading_style))
-    missing_skills = analysis.get('missing_skills', [])
-    for skill in missing_skills[:5]:
-        content.append(Paragraph(f"• {skill}", normal_style))
-    content.append(Spacer(1, 20))
+    story.append(Paragraph("<b>Interview Questions:</b>", title_style))
+    for i, q in enumerate(report.get("suggested_interview_questions", []), 1):
+        story.append(Paragraph(f"{i}. {q}", normal_style))
     
-    # Recommendations
-    content.append(Paragraph("💡 Recommendations", heading_style))
-    recommendations = analysis.get('recommendations', [])
-    for rec in recommendations[:5]:
-        content.append(Paragraph(f"• {rec}", normal_style))
-    content.append(Spacer(1, 20))
+    story.append(Paragraph("<b>Recommendation:</b>", title_style))
+    story.append(Paragraph(report.get("next_round_recommendation", ""), normal_style))
     
-    # Detailed Analysis
-    if analysis.get('experience_analysis'):
-        content.append(Paragraph("📋 Experience Analysis", heading_style))
-        content.append(Paragraph(analysis['experience_analysis'], normal_style))
-        content.append(Spacer(1, 15))
-    
-    if analysis.get('skills_analysis'):
-        content.append(Paragraph("🛠️ Skills Analysis", heading_style))
-        content.append(Paragraph(analysis['skills_analysis'], normal_style))
-        content.append(Spacer(1, 15))
-    
-    # Next Steps
-    if analysis.get('next_steps'):
-        content.append(Paragraph("🚀 Next Steps", heading_style))
-        content.append(Paragraph(analysis['next_steps'], normal_style))
-    
-    # Build PDF
-    doc.build(content)
+    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     buffer.seek(0)
-    return buffer.getvalue()
+    return buffer
 
-def generate_pdf_download_button(analysis: Dict[str, Any], candidate_name: str, job_title: str = ""):
-    """
-    Generate PDF and create download button
-    """
-    try:
-        pdf_bytes = create_analysis_pdf(analysis, candidate_name, job_title)
+
+def create_batch_zip(reports, job_desc):
+    """Create a ZIP file containing all batch reports with improved filename handling"""
+    zip_buffer = BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Track used filenames to avoid duplicates
+        used_filenames = set()
         
-        filename = f"Resume_Analysis_{candidate_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        # Add individual PDF reports
+        for i, report_data in enumerate(reports, 1):
+            report = report_data['report']
+            filename = report_data['filename']
+            candidate_name = report_data['candidate_name']
+            
+            # Generate PDF
+            pdf_buffer = build_pdf(report, candidate_name=candidate_name, extracted_from_cv=True)
+            
+            # Create safe, unique filename
+            safe_filename = create_safe_filename(candidate_name, filename, i)
+            
+            # Ensure uniqueness
+            counter = 1
+            original_safe_filename = safe_filename
+            while safe_filename in used_filenames:
+                base_name = original_safe_filename.rsplit('.', 1)[0]
+                safe_filename = f"{base_name}_v{counter}.pdf"
+                counter += 1
+            
+            used_filenames.add(safe_filename)
+            
+            # Add to ZIP
+            zip_file.writestr(safe_filename, pdf_buffer.read())
+            
+            # Debug logging
+            print(f"Added to ZIP: {safe_filename} (Original: {filename}, Name: {candidate_name})")
         
-        st.download_button(
-            label="📄 Download PDF Report",
-            data=pdf_bytes,
-            file_name=filename,
-            mime="application/pdf",
-            help="Download detailed analysis as PDF"
-        )
-        return True
-    except Exception as e:
-        st.error(f"Error generating PDF: {str(e)}")
-        return False
+        # Add summary JSON
+        summary = {
+            "job_description": job_desc,
+            "analysis_date": datetime.now().strftime("%d %B %Y"),
+            "total_candidates": len(reports),
+            "candidates": [
+                {
+                    "candidate_name": r['candidate_name'],
+                    "filename": r['filename'],
+                    "alignment_score": r['report']['alignment_score'],
+                    "recommendation": r['report']['next_round_recommendation'],
+                    "experience": r['report']['experience_years']['raw_estimate']
+                } for r in reports
+            ]
+        }
+        
+        zip_file.writestr("batch_summary.json", json.dumps(summary, indent=2))
+    
+    zip_buffer.seek(0)
+    return zip_buffer
