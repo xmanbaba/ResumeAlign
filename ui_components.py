@@ -1,6 +1,6 @@
 """
 UI Components and CSS styling for ResumeAlign
-Contains all styling and reusable UI components
+Contains all styling and reusable UI components - FIXED VERSION
 """
 
 import streamlit as st
@@ -89,7 +89,7 @@ def apply_custom_css():
         font-weight: 400;
     }
     
-    /* Feature Button Cards - Black borders and reduced height */
+    /* Feature Button Cards - Black borders and properly aligned headers */
     .feature-card {
         background: #ffffff;
         border: 2px solid #000000;
@@ -113,9 +113,14 @@ def apply_custom_css():
         margin-bottom: 0.5rem;
         font-weight: 600;
         font-size: 1.1rem;
+        text-align: center;
+        padding: 0.5rem;
+        background: rgba(229, 62, 62, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(229, 62, 62, 0.2);
     }
     
-    /* Analysis Cards - Black borders and compact */
+    /* Analysis Cards - Black borders and properly aligned headers */
     .analysis-card {
         background: #ffffff;
         border: 2px solid #000000;
@@ -130,6 +135,18 @@ def apply_custom_css():
         transform: translateY(-1px);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
         border-color: #E53E3E;
+    }
+    
+    /* Ensure all section headers are properly aligned in their button boxes */
+    .analysis-card h3 {
+        color: #059669;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        text-align: center;
+        padding: 0.8rem;
+        background: rgba(5, 150, 105, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(5, 150, 105, 0.2);
     }
     
     /* Mode Selector - Black borders */
@@ -168,7 +185,7 @@ def apply_custom_css():
         min-height: 120px !important;
     }
     
-    /* Buttons - Reduced height */
+    /* Buttons - Properly aligned and reduced height */
     .stButton > button {
         background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%) !important;
         color: white !important;
@@ -181,6 +198,8 @@ def apply_custom_css():
         box-shadow: 0 2px 10px rgba(229, 62, 62, 0.3) !important;
         min-height: auto !important;
         height: auto !important;
+        width: 100% !important;
+        text-align: center !important;
     }
     
     .stButton > button:hover {
@@ -200,6 +219,8 @@ def apply_custom_css():
         transition: all 0.3s ease !important;
         box-shadow: 0 2px 10px rgba(45, 55, 72, 0.3) !important;
         min-height: auto !important;
+        width: 100% !important;
+        text-align: center !important;
     }
     
     .stDownloadButton > button:hover {
@@ -230,6 +251,7 @@ def apply_custom_css():
         border-radius: 8px;
         border: 2px solid #000000;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        text-align: center;
     }
     
     /* Progress Bar */
@@ -263,6 +285,7 @@ def apply_custom_css():
         color: #2D3748;
         padding: 0.8rem 1rem;
         min-height: auto;
+        text-align: center;
     }
     
     .streamlit-expanderHeader:hover {
@@ -293,6 +316,7 @@ def apply_custom_css():
         transition: all 0.3s ease !important;
         box-shadow: 0 2px 10px rgba(0, 119, 181, 0.3) !important;
         min-height: auto !important;
+        width: 100% !important;
     }
     
     .stLinkButton > a:hover {
@@ -399,18 +423,6 @@ def render_logo_header():
                 <text x="185" y="175" font-family="Segoe UI, Tahoma, Geneva, Verdana, sans-serif" font-size="42" font-weight="600" fill="#2D3748">ResumeAlign</text>
             </svg>
         </div>
-        <div>
-            <button onclick="clearSession()" style="
-                background: linear-gradient(135deg, #718096 0%, #4A5568 100%);
-                color: white;
-                border: 2px solid #000000;
-                border-radius: 8px;
-                padding: 0.6rem 1.2rem;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            ">🔄 Clear Session</button>
-        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -438,7 +450,7 @@ def render_analysis_card(title, content=""):
     """Render an analysis results card"""
     st.markdown(f"""
     <div class="analysis-card">
-        <h3 style="color: #059669; margin-bottom: 1rem; font-weight: 600;">{title}</h3>
+        <h3>{title}</h3>
         {content}
     </div>
     """, unsafe_allow_html=True)
@@ -497,11 +509,10 @@ def render_copy_paste_guide():
 
 
 def render_app_footer():
-    """Render the application footer"""
+    """Render the application footer - FIXED: Removed "Built with love" message"""
     st.markdown("""
     <div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem; border-top: 2px solid #000000; margin-top: 2rem;">
         <p>© 2025 ResumeAlign - AI-Powered Resume Analysis Platform</p>
-        <p>Built with ❤️ using Streamlit & Google Gemini AI</p>
     </div>
     """, unsafe_allow_html=True)
 
