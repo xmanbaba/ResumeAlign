@@ -327,4 +327,3 @@ def display_detailed_batch_results(batch_reports, job_desc):
 
 if __name__ == "__main__":
     main()
- 
