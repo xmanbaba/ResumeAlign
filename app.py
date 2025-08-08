@@ -32,10 +32,29 @@ render_logo_header()
 # Main Title Section
 render_main_header()
 
-# Clear Session Button (Streamlit version for functionality)
+# Clear Session Button (Streamlit version for functionality) - FIXED: Added black border styling
 col1, col2, col3 = st.columns([6, 1, 1])
 with col3:
-    if st.button("🔄 Clear Session", help="Clear all data and start fresh", key="clear_btn"):
+    # Use custom CSS class for black border
+    st.markdown("""
+    <style>
+    .clear-session-btn button {
+        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
+        color: white !important;
+        border: 2px solid #000000 !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1.2rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    .clear-session-btn button:hover {
+        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
+        transform: translateY(-1px) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🔄 Clear Session", help="Clear all data and start fresh", key="clear_btn", use_container_width=True):
         clear_session()
         st.rerun()
 
@@ -50,7 +69,7 @@ analysis_mode = st.radio(
 )
 
 if analysis_mode == "🧑‍💼 Single Candidate Analysis":
-    # LinkedIn Profile Helper
+    # LinkedIn Profile Helper - FIXED: Removed blank button
     render_feature_card("🔗 LinkedIn Profile Helper")
     profile_url = render_linkedin_helper()
     
@@ -117,15 +136,18 @@ if analysis_mode == "🧑‍💼 Single Candidate Analysis":
         st.success("✅ Analysis completed successfully!")
 
 else:
-    # Batch processing interface
-    render_feature_card("📁 Batch Processing Mode", """
+    # Batch processing interface - FIXED: Removed gibberish content
+    st.markdown("""
+    <div class="feature-card">
+        <h3>📁 Batch Processing Mode</h3>
         <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%); 
                     padding: 1rem; border-radius: 8px; border: 2px solid #000000; margin-top: 0.5rem;">
             <p style="margin: 0; color: #1e40af; font-weight: 500;">
                 📋 Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.
             </p>
         </div>
-    """)
+    </div>
+    """, unsafe_allow_html=True)
     
     with st.form("batch_analyzer", clear_on_submit=False):
         job_desc = st.text_area(
@@ -241,14 +263,7 @@ if "last_report" in st.session_state and analysis_mode == "🧑‍💼 Single Ca
             use_container_width=True
         )
     
-    # Results display - FIXED: Added missing button for "Candidate Analysis Snapshot"
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 📊 **Candidate Analysis Snapshot**")
-    
-    # Score display
-    score = report['alignment_score']
-    percentage = int((score / 10) * 100)
-    
+    # Results display - FIXED: Proper header alignment without separate buttons
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("🎯 Alignment Score", f"{percentage}%", f"{score}/10")
@@ -260,42 +275,32 @@ if "last_report" in st.session_state and analysis_mode == "🧑‍💼 Single Ca
         recommendation = report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
         st.metric("📋 Recommendation", recommendation)
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # FIXED: Properly aligned sections with proper button boxes
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 📝 **Candidate Summary**")
+    # FIXED: Streamlined sections without problematic button styling
+    st.markdown("### 📝 Candidate Summary")
     st.write(report["candidate_summary"])
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Strengths and improvements - FIXED: Proper alignment
+    # Strengths and improvements
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-        st.markdown("### ✅ **Key Strengths**")
+        st.markdown("### ✅ Key Strengths")
         for i, strength in enumerate(report["strengths"], 1):
             st.markdown(f"**{i}.** {strength}")
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-        st.markdown("### 🎯 **Areas for Development**")
+        st.markdown("### 🎯 Areas for Development")
         for i, area in enumerate(report["areas_for_improvement"], 1):
             st.markdown(f"**{i}.** {area}")
-        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Interview questions - FIXED: Proper button alignment
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 🤔 **Suggested Interview Questions**")
+    # Interview questions
+    st.markdown("### 🤔 Suggested Interview Questions")
     for i, question in enumerate(report["suggested_interview_questions"], 1):
         st.markdown(f"**{i}.** {question}")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Final recommendation - FIXED: Proper button alignment
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 🎯 **Final Recommendation**")
+    # Final recommendation
+    st.markdown("### 🎯 Final Recommendation")
     st.markdown(f"**Decision:** {report['next_round_recommendation']}")
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Display results for batch processing - FIXED: Complete functionality restored
@@ -342,9 +347,8 @@ if "batch_reports" in st.session_state and analysis_mode == "📁 Batch Processi
             use_container_width=True
         )
     
-    # Summary overview - FIXED: Proper display
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 📊 **Batch Results Overview**")
+    # Summary overview - FIXED: Streamlined headers
+    st.markdown("### 📊 Batch Results Overview")
     
     # Create enhanced summary data
     summary_data = []
@@ -382,12 +386,9 @@ if "batch_reports" in st.session_state and analysis_mode == "📁 Batch Processi
         item["Rank"] = f"#{i}"
     
     st.dataframe(summary_data, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Individual candidate details - FIXED: Proper button alignment
-    st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
-    st.markdown("### 👥 **Individual Candidate Reports**")
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Individual candidate details - FIXED: Streamlined header
+    st.markdown("### 👥 Individual Candidate Reports")
     
     for i, report_data in enumerate(batch_reports, 1):
         report = report_data['report']
