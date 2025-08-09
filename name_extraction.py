@@ -1,385 +1,311 @@
-"""
-Candidate name extraction utilities for ResumeAlign - IMPROVED VERSION
-Enhanced name extraction with better accuracy for batch processing
-"""
-
 import re
-import google.generativeai as genai
-import os
+import logging
+from typing import Optional, List
 
-# Initialize Gemini model
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.5-flash")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-
-def extract_candidate_name_from_ai_report(report):
-    """Extract candidate name from AI-generated report - Enhanced for better accuracy"""
-    try:
-        if 'candidate_summary' in report and report['candidate_summary']:
-            summary = report['candidate_summary']
-            
-            # Enhanced patterns to capture names
-            name_patterns = [
-                # Pattern: "John Doe is a..." or "John Doe brings..."
-                r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+[A-Z]\.?)*)\s+(?:is|brings|has|possesses|demonstrates|shows|works|serves)\s',
-                # Pattern: "Name, a professional..." or "Name is a..."
-                r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),?\s+(?:a|an|is)\s',
-                # Pattern: Direct name at start followed by professional title
-                r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:with|having|working)',
-                # Pattern: "Mr./Ms./Dr. Name" 
-                r'^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
-            ]
-            
-            for pattern in name_patterns:
-                match = re.search(pattern, summary)
-                if match:
-                    extracted_name = match.group(1).strip()
-                    # Clean up any trailing punctuation
-                    extracted_name = re.sub(r'[,.]$', '', extracted_name)
-                    if is_valid_name(extracted_name):
-                        return clean_name(extracted_name)
-            
-            # Fallback: Look for capitalized words at the beginning
-            words = summary.split()[:5]  # First 5 words
-            for i in range(2, min(4, len(words) + 1)):  # Try 2-3 word combinations
-                potential_name = " ".join(words[:i])
-                if is_valid_name(potential_name):
-                    return clean_name(potential_name)
-        
-        return None
-    except Exception as e:
-        print(f"Error extracting name from AI report: {e}")
-        return None
-
-
-def extract_candidate_name(text):
-    """Enhanced candidate name extraction with improved LinkedIn and CV support"""
-    if not text or not text.strip():
+def extract_name_from_text(text: str) -> str:
+    """Extract candidate name from resume text using multiple strategies with improved consistency"""
+    
+    if not text:
         return "Unknown Candidate"
     
-    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
-    if not lines:
-        return "Unknown Candidate"
+    # Clean the text
+    text = text.strip()
     
-    # Strategy 1: Look for explicit name labels
-    name_patterns = [
-        r'(?:name|full\s*name|candidate\s*name|applicant\s*name)\s*[:\-]?\s*(.+)',
-        r'(?:nome|naam|имя)\s*[:\-]?\s*(.+)',  # Multi-language support
-    ]
+    # Strategy 1: Look for explicit name patterns at the beginning
+    name = try_explicit_patterns(text)
+    if name and is_valid_name(name):
+        logger.info(f"Name extracted using explicit patterns: {name}")
+        return name
     
-    for line in lines[:10]:
-        for pattern in name_patterns:
-            match = re.search(pattern, line, re.IGNORECASE)
-            if match:
-                extracted_name = match.group(1).strip()
-                if is_valid_name(extracted_name):
-                    return clean_name(extracted_name)
+    # Strategy 2: Look for name in first few lines
+    name = try_first_lines_extraction(text)
+    if name and is_valid_name(name):
+        logger.info(f"Name extracted from first lines: {name}")
+        return name
     
-    # Strategy 2: Enhanced LinkedIn profile handling
-    is_linkedin = detect_linkedin_profile(lines)
+    # Strategy 3: Look for email-based name extraction
+    name = try_email_based_extraction(text)
+    if name and is_valid_name(name):
+        logger.info(f"Name extracted from email: {name}")
+        return name
     
-    if is_linkedin:
-        name = extract_name_from_linkedin(lines)
-        if name:
-            return name
+    # Strategy 4: Look for capitalized words pattern
+    name = try_capitalized_pattern(text)
+    if name and is_valid_name(name):
+        logger.info(f"Name extracted using capitalized pattern: {name}")
+        return name
     
-    # Strategy 3: Handle formal documents with titles
-    for line in lines[:15]:
-        # Pattern for formal titles with names
-        title_patterns = [
-            r'^(?:MR\.?|MS\.?|MRS\.?|DR\.?|PROF\.?)\s+([A-Z][A-Z\s.]+?)(?:\s*[-\–\—]|\s*\$|\s*\n|$)',
-            r'^([A-Z][A-Z\s.]+?)\s*[-\–\—]\s*(?:CURRICULUM|RESUME|CV)',
-        ]
-        
-        for pattern in title_patterns:
-            match = re.search(pattern, line, re.IGNORECASE)
-            if match:
-                potential_name = match.group(1).strip()
-                # Clean up and validate
-                potential_name = re.sub(r'\s+', ' ', potential_name)
-                if is_valid_name(potential_name):
-                    return clean_name(potential_name)
+    # Strategy 5: Look for structured resume patterns
+    name = try_structured_patterns(text)
+    if name and is_valid_name(name):
+        logger.info(f"Name extracted using structured patterns: {name}")
+        return name
     
-    # Strategy 4: First meaningful line analysis
-    for line in lines[:8]:  # Extended search
-        if is_valid_name(line):
-            return clean_name(line)
-    
-    # Strategy 5: Look for name patterns in content
-    for line in lines[:15]:
-        # Find sequences of capitalized words
-        words = line.split()
-        if 2 <= len(words) <= 4:
-            capitalized_words = []
-            for word in words:
-                clean_word = re.sub(r'[^\w\s\'-]', '', word)
-                if clean_word and clean_word[0].isupper() and clean_word.isalpha():
-                    capitalized_words.append(clean_word)
-            
-            if len(capitalized_words) >= 2 and len(capitalized_words) == len([w for w in words if w]):
-                candidate_name = ' '.join(capitalized_words)
-                if is_valid_name(candidate_name):
-                    return clean_name(candidate_name)
-    
-    # Strategy 6: AI-assisted extraction (last resort)
-    try:
-        text_sample = text[:1000]  # Increased sample size
-        ai_extracted_name = extract_name_with_ai(text_sample)
-        if ai_extracted_name and is_valid_name(ai_extracted_name):
-            return clean_name(ai_extracted_name)
-    except:
-        pass
-    
-    # Fallback: Use first reasonable line
-    for line in lines[:3]:
-        cleaned = clean_name(line)
-        if cleaned and cleaned != "Unknown Candidate":
-            return cleaned
-    
+    logger.warning("Could not extract name from resume text")
     return "Unknown Candidate"
 
-
-def detect_linkedin_profile(lines):
-    """Detect if the text appears to be from a LinkedIn profile"""
-    linkedin_indicators = [
-        'linkedin', 'about', 'experience', 'education', 'skills', 
-        'endorsements', 'recommendations', 'connections', 'activity',
-        'top skills', 'licenses', 'certifications', 'volunteer',
-        'publications', 'contact info', 'summary'
+def try_explicit_patterns(text: str) -> Optional[str]:
+    """Try to extract name using explicit patterns"""
+    lines = text.split('\n')
+    first_lines = [line.strip() for line in lines[:5] if line.strip()]
+    
+    patterns = [
+        r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]*\.?)*(?:\s+[A-Z][a-z]+)+)$',  # Full name pattern
+        r'^Name[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',  # "Name: John Doe"
+        r'^([A-Z][A-Z\s]+)$',  # ALL CAPS names
+        r'^([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)(?:\s|$)',  # Standard name format
     ]
     
-    first_few_lines = ' '.join(lines[:8]).lower()
-    indicator_count = sum(1 for indicator in linkedin_indicators if indicator in first_few_lines)
-    
-    return indicator_count >= 2
-
-
-def extract_name_from_linkedin(lines):
-    """Extract name specifically from LinkedIn profile content"""
-    skip_terms = [
-        'contact', 'about', 'experience', 'education', 'skills', 'linkedin',
-        'profile', 'top skills', 'summary', 'recommendations', 'accomplishments',
-        'licenses', 'certifications', 'volunteer', 'publications', 'projects',
-        'activity', 'interests', 'honors', 'awards', 'courses', 'languages'
-    ]
-    
-    job_keywords = [
-        'engineer', 'manager', 'director', 'analyst', 'consultant', 'developer',
-        'specialist', 'coordinator', 'assistant', 'lead', 'senior', 'junior',
-        'company', 'inc', 'ltd', 'corp', 'llc', 'university', 'college',
-        'executive', 'supervisor', 'administrator', 'technician', 'officer',
-        'founder', 'ceo', 'cto', 'cfo', 'president', 'vice', 'head'
-    ]
-    
-    for i, line in enumerate(lines[:25]):  # Extended search for LinkedIn
-        line_lower = line.lower().strip()
-        
-        # Skip empty lines
-        if not line_lower:
-            continue
-            
-        # Skip obvious navigation/section headers
-        if any(term in line_lower for term in skip_terms):
-            continue
-        
-        # Skip lines that look like job titles or companies
-        if any(keyword in line_lower for keyword in job_keywords):
-            continue
-        
-        # Skip lines with contact info patterns
-        if any(char in line for char in ['@', 'http', 'www', '+', '(', ')', '.com', '.org']):
-            continue
-            
-        # Skip lines with numbers (likely dates, phone numbers, etc.)
-        if re.search(r'\d{2,}', line):
-            continue
-        
-        # Check if this line looks like a name
-        if is_valid_name(line.strip()):
-            return clean_name(line.strip())
+    for line in first_lines:
+        for pattern in patterns:
+            match = re.match(pattern, line)
+            if match:
+                name = match.group(1).strip()
+                if len(name.split()) >= 2:  # Ensure we have at least first and last name
+                    return format_name(name)
     
     return None
 
+def try_first_lines_extraction(text: str) -> Optional[str]:
+    """Extract name from the first few meaningful lines"""
+    lines = text.split('\n')
+    
+    for i, line in enumerate(lines[:7]):  # Check first 7 lines
+        line = line.strip()
+        if not line or len(line) < 3:
+            continue
+        
+        # Skip common resume headers
+        if any(keyword in line.lower() for keyword in ['resume', 'cv', 'curriculum', 'profile', 'contact']):
+            continue
+        
+        # Check if line looks like a name
+        words = line.split()
+        if 2 <= len(words) <= 4:  # Names typically have 2-4 parts
+            if all(is_likely_name_word(word) for word in words):
+                name = ' '.join(words)
+                if is_valid_name(name):
+                    return format_name(name)
+    
+    return None
 
-def is_valid_name(name_candidate):
-    """Enhanced validation to check if a string looks like a valid name"""
-    if not name_candidate or not name_candidate.strip():
-        return False
+def try_email_based_extraction(text: str) -> Optional[str]:
+    """Extract name from email address"""
+    email_pattern = r'\b([a-zA-Z0-9._%+-]+)@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b'
+    matches = re.findall(email_pattern, text)
     
-    name = name_candidate.strip()
+    for email_part in matches:
+        # Split by common separators
+        parts = re.split(r'[._-]+', email_part.lower())
+        
+        if len(parts) >= 2:
+            # Capitalize each part
+            name_parts = [part.capitalize() for part in parts if part.isalpha() and len(part) > 1]
+            
+            if len(name_parts) >= 2:
+                name = ' '.join(name_parts[:3])  # Take up to 3 parts
+                if is_valid_name(name):
+                    return format_name(name)
     
-    # Basic length checks
-    if len(name) < 2 or len(name) > 100:
-        return False
+    return None
+
+def try_capitalized_pattern(text: str) -> Optional[str]:
+    """Look for capitalized word patterns that might be names"""
+    lines = text.split('\n')[:10]  # Check first 10 lines
     
-    # Should not contain numbers
-    if re.search(r'\d', name):
-        return False
+    for line in lines:
+        line = line.strip()
+        
+        # Look for capitalized words at the start of a line
+        pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]*\.?)*(?:\s+[A-Z][a-z]+)+)'
+        match = re.match(pattern, line)
+        
+        if match:
+            potential_name = match.group(1).strip()
+            words = potential_name.split()
+            
+            # Validate it looks like a name
+            if 2 <= len(words) <= 4 and all(is_likely_name_word(word) for word in words):
+                if is_valid_name(potential_name):
+                    return format_name(potential_name)
     
-    # Should not be common non-name words/phrases
-    non_names = [
-        'contact', 'about', 'experience', 'education', 'skills', 'profile', 'resume', 'cv',
-        'curriculum', 'vitae', 'linkedin', 'email', 'phone', 'address', 'objective',
-        'summary', 'unknown', 'candidate', 'applicant', 'top skills', 'recommendations',
-        'accomplishments', 'certifications', 'volunteer', 'publications', 'projects',
-        'suitability', 'leadership', 'role', 'position', 'job', 'employment', 'career',
-        'professional', 'expert', 'specialist', 'consultant', 'manager', 'director',
-        'personal', 'information', 'details', 'overview', 'background', 'qualification'
+    return None
+
+def try_structured_patterns(text: str) -> Optional[str]:
+    """Try to find names in structured resume formats"""
+    # Common structured patterns in resumes
+    patterns = [
+        r'(?:PERSONAL\s+INFORMATION|PERSONAL\s+DETAILS)[:\s\n]+.*?(?:Name[:\s]+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        r'(?:CANDIDATE|APPLICANT)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        r'^([A-Z][A-Z\s]{10,30})$',  # Long caps names (headers)
     ]
     
-    if name.lower() in non_names:
+    for pattern in patterns:
+        matches = re.finditer(pattern, text, re.MULTILINE | re.IGNORECASE)
+        for match in matches:
+            name = match.group(1).strip()
+            if is_valid_name(name):
+                return format_name(name)
+    
+    return None
+
+def is_likely_name_word(word: str) -> bool:
+    """Check if a word is likely part of a person's name"""
+    word = word.strip('.,')
+    
+    # Skip if too short or too long
+    if len(word) < 2 or len(word) > 20:
         return False
     
-    # Should not contain job-related phrases
-    job_phrases = [
-        'business leadership', 'real estate', 'for real estate', 'leadership role',
-        'business development', 'account manager', 'sales manager', 'project manager',
-        'human resources', 'information technology', 'customer service', 'data analyst',
-        'software engineer', 'marketing specialist', 'financial advisor'
+    # Skip if contains numbers
+    if any(char.isdigit() for char in word):
+        return False
+    
+    # Skip common non-name words
+    skip_words = {
+        'resume', 'cv', 'curriculum', 'vitae', 'profile', 'contact', 'phone', 'email',
+        'address', 'objective', 'summary', 'experience', 'education', 'skills',
+        'references', 'available', 'upon', 'request', 'professional', 'personal',
+        'information', 'details', 'background', 'qualifications'
+    }
+    
+    if word.lower() in skip_words:
+        return False
+    
+    # Must start with capital letter and contain only letters and common name characters
+    if not word[0].isupper():
+        return False
+    
+    return all(char.isalpha() or char in "'-." for char in word)
+
+def is_valid_name(name: str) -> bool:
+    """Validate if the extracted text is likely a valid name"""
+    if not name or len(name.strip()) < 3:
+        return False
+    
+    words = name.split()
+    
+    # Should have at least 2 words (first and last name)
+    if len(words) < 2:
+        return False
+    
+    # Should not have too many words (likely not a name if > 4 words)
+    if len(words) > 4:
+        return False
+    
+    # Each word should be a likely name word
+    if not all(is_likely_name_word(word) for word in words):
+        return False
+    
+    # Check for common false positives
+    name_lower = name.lower()
+    false_positives = [
+        'resume objective', 'curriculum vitae', 'personal information',
+        'contact information', 'professional summary', 'work experience',
+        'education background', 'technical skills', 'core competencies'
     ]
     
-    if any(phrase in name.lower() for phrase in job_phrases):
-        return False
-    
-    # Check word structure
-    parts = name.split()
-    
-    # Single word names - stricter validation
-    if len(parts) == 1:
-        word = parts[0]
-        # Must be properly capitalized and reasonable length
-        if not (word[0].isupper() and word[1:].islower() and 3 <= len(word) <= 20):
-            return False
-        # Should not be common single words
-        common_words = ['the', 'and', 'for', 'with', 'this', 'that', 'from', 'they', 'have', 'will']
-        if word.lower() in common_words:
-            return False
-    
-    # Multiple word names
-    elif len(parts) >= 2:
-        # Each part should be mostly alphabetic with proper capitalization
-        for part in parts:
-            clean_part = part.replace('.', '').replace(',', '').replace('-', '').replace("'", '')
-            if not clean_part:
-                continue
-            if not clean_part.isalpha():
-                return False
-            # Should start with capital letter
-            if not part[0].isupper():
-                return False
-    
-    # Additional validation: should look like a real name
-    # Names typically have vowels
-    vowel_count = sum(1 for char in name.lower() if char in 'aeiou')
-    if vowel_count == 0:
+    if any(fp in name_lower for fp in false_positives):
         return False
     
     return True
 
-
-def clean_name(name):
-    """Enhanced name cleaning and formatting"""
+def format_name(name: str) -> str:
+    """Format the name consistently"""
     if not name:
         return "Unknown Candidate"
     
-    # Remove common prefixes and suffixes
-    prefixes = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sir', 'madam', 'miss']
-    suffixes = ['cv', 'resume', 'curriculum vitae', 'profile', 'summary', 'profile summary', 'bio']
+    # Clean and format
+    name = ' '.join(name.split())  # Remove extra whitespace
+    name = re.sub(r'[^\w\s\'-.]', '', name)  # Remove unwanted characters
     
-    name = name.strip()
-    name_lower = name.lower()
-    
-    # Remove prefixes
-    for prefix in prefixes:
-        if name_lower.startswith(prefix + ' '):
-            name = name[len(prefix):].strip()
-            name_lower = name.lower()
-            break
-    
-    # Remove suffixes
-    for suffix in suffixes:
-        if name_lower.endswith(' ' + suffix):
-            name = name[:-len(suffix)].strip()
-            break
-    
-    # Remove content after common separators
-    separators = [' - ', ' -- ', ' | ', ' for ', ' cv', ' resume', '\n', '\t']
-    for sep in separators:
-        if sep in name.lower():
-            name = name.split(sep)[0].strip()
-            break
-    
-    # Clean up extra whitespace
-    name = re.sub(r'\s+', ' ', name)
-    
-    # Remove special characters except apostrophes and hyphens in names
-    name = re.sub(r'[^\w\s\'-]', '', name)
-    
-    # Title case the name properly
-    words = name.split()
-    cleaned_words = []
-    
-    for word in words:
-        if not word:
-            continue
-            
-        # Handle names with apostrophes and hyphens (e.g., O'Connor, Mary-Jane)
-        if "'" in word or "-" in word:
-            parts = re.split(r"([\'-])", word)
-            title_parts = []
-            for part in parts:
-                if part in ["'", "-"]:
-                    title_parts.append(part)
-                elif part:
-                    title_parts.append(part.capitalize())
-            cleaned_words.append(''.join(title_parts))
+    # Title case each word
+    words = []
+    for word in name.split():
+        # Handle special cases like O'Connor, McDonald, etc.
+        if "'" in word:
+            parts = word.split("'")
+            word = "'".join([part.capitalize() for part in parts])
+        elif word.lower().startswith('mc') and len(word) > 2:
+            word = 'Mc' + word[2:].capitalize()
         else:
-            cleaned_words.append(word.capitalize())
+            word = word.capitalize()
+        words.append(word)
     
-    result = ' '.join(cleaned_words)
+    formatted_name = ' '.join(words)
     
     # Final validation
-    if not result or not is_valid_name(result):
+    if len(formatted_name) > 50:  # Suspiciously long name
         return "Unknown Candidate"
     
-    return result
+    return formatted_name
 
+def extract_name_from_filename(filename: str) -> str:
+    """Extract candidate name from filename as fallback"""
+    if not filename:
+        return "Unknown Candidate"
+    
+    # Remove file extension
+    name_part = filename.rsplit('.', 1)[0]
+    
+    # Common filename patterns
+    patterns = [
+        r'^([A-Z][a-z]+[_\s-]+[A-Z][a-z]+)',  # FirstName_LastName or FirstName-LastName
+        r'^([A-Z][a-z]+[_\s-]+[A-Z]\.[A-Z][a-z]+)',  # FirstName_M.LastName
+        r'([A-Z][a-z]+[_\s-]+[A-Z][a-z]+)[_\s-](?:resume|cv)',  # Name_Resume
+        r'(?:resume|cv)[_\s-]+([A-Z][a-z]+[_\s-]+[A-Z][a-z]+)',  # Resume_Name
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, name_part, re.IGNORECASE)
+        if match:
+            name = match.group(1)
+            # Replace underscores and dashes with spaces
+            name = re.sub(r'[_-]', ' ', name)
+            formatted_name = format_name(name)
+            if is_valid_name(formatted_name):
+                logger.info(f"Name extracted from filename: {formatted_name}")
+                return formatted_name
+    
+    # Fallback: try to clean the filename
+    cleaned_name = re.sub(r'[_-]', ' ', name_part)
+    cleaned_name = re.sub(r'(?i)(resume|cv|curriculum|vitae)', '', cleaned_name)
+    cleaned_name = cleaned_name.strip()
+    
+    if cleaned_name and is_valid_name(cleaned_name):
+        formatted_name = format_name(cleaned_name)
+        logger.info(f"Name extracted from cleaned filename: {formatted_name}")
+        return formatted_name
+    
+    logger.warning(f"Could not extract name from filename: {filename}")
+    return "Unknown Candidate"
 
-def extract_name_with_ai(text_sample):
-    """Use AI to extract name from text with improved prompting"""
-    try:
-        prompt = f"""Extract ONLY the candidate's full name from this CV/resume text. Look for the person's actual name, not job titles or company names.
-
-The name should be a person's first and last name (and possibly middle name).
-
-Text: {text_sample[:800]}
-
-Instructions:
-- Return ONLY the person's name
-- Do not include titles like Mr., Dr., etc.
-- Do not include job titles
-- Do not include company names
-- If you cannot find a clear name, return "Unknown"
-
-Name:"""
-        
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,  # Very low temperature for consistency
-                max_output_tokens=50,
-            )
-        )
-        
-        extracted = response.text.strip()
-        
-        # Clean up AI response
-        extracted = re.sub(r'^(name:|full name:|candidate name:)', '', extracted, flags=re.IGNORECASE).strip()
-        extracted = extracted.replace('"', '').replace("'", '').strip()
-        extracted = extracted.replace('Unknown', '').strip()
-        
-        return extracted if extracted and extracted != "Unknown" else None
-        
-    except Exception as e:
-        print(f"AI name extraction error: {e}")
-        return None
+def get_name_confidence_score(name: str, text: str) -> float:
+    """Calculate confidence score for extracted name"""
+    if name == "Unknown Candidate":
+        return 0.0
+    
+    confidence = 0.5  # Base confidence
+    
+    # Increase confidence if name appears multiple times in text
+    name_count = text.lower().count(name.lower())
+    if name_count > 1:
+        confidence += 0.2
+    
+    # Increase confidence if name has proper structure
+    words = name.split()
+    if len(words) == 2:  # First Last
+        confidence += 0.2
+    elif len(words) == 3:  # First Middle Last
+        confidence += 0.15
+    
+    # Increase confidence if name appears near top of document
+    first_200_chars = text[:200].lower()
+    if name.lower() in first_200_chars:
+        confidence += 0.15
+    
+    return min(confidence, 1.0)
