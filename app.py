@@ -1,446 +1,420 @@
-# app.py -- ResumeAlign v1.4 with Enhanced UI/UX Design - FIXED VERSION
-
-import os, json, streamlit as st
-from datetime import datetime
+import streamlit as st
+import pandas as pd
+import io
 import time
+import logging
+from datetime import datetime
+import hashlib
+import json
 
-# Import all refactored modules
-from file_utils import extract_text, create_safe_filename
-from name_extraction import extract_candidate_name, extract_candidate_name_from_ai_report
-from pdf_generator import build_pdf, create_batch_zip
-from ui_components import (
-    apply_custom_css, render_logo_header, render_main_header, 
-    render_feature_card, render_analysis_card, render_linkedin_helper,
-    render_copy_paste_guide, render_app_footer, clear_session
-)
-from ai_analysis import analyze_single_candidate
+# Import our custom modules
+from ai_analysis import analyze_single_candidate, analyze_batch_candidates
+from file_utils import extract_text_from_file, save_uploaded_file
+from name_extraction import extract_name_from_text, extract_name_from_filename
+from pdf_generator import generate_comparison_pdf
+from ui_components import apply_custom_css, render_header, render_sidebar
 
-# ---------- UI ----------
-st.set_page_config(
-    page_title="ResumeAlign - AI Resume Analyzer", 
-    layout="wide",
-    initial_sidebar_state="collapsed",
-    page_icon="🎯"
-)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Apply custom CSS
-apply_custom_css()
+def initialize_session_state():
+    """Initialize session state variables"""
+    if 'analysis_results' not in st.session_state:
+        st.session_state.analysis_results = []
+    if 'job_description' not in st.session_state:
+        st.session_state.job_description = ""
+    if 'analysis_history' not in st.session_state:
+        st.session_state.analysis_history = []
+    if 'candidate_cache' not in st.session_state:
+        st.session_state.candidate_cache = {}
 
-# Logo Header Section
-render_logo_header()
+def generate_candidate_hash(text_content, filename):
+    """Generate a hash for candidate data to enable caching"""
+    content_str = f"{filename}_{text_content[:500]}"  # Use first 500 chars for hash
+    return hashlib.md5(content_str.encode()).hexdigest()
 
-# Main Title Section
-render_main_header()
+def clear_session():
+    """Clear all session state data"""
+    keys_to_clear = [
+        'analysis_results', 'job_description', 'analysis_history', 
+        'candidate_cache', 'batch_results'
+    ]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
 
-# Clear Session Button (Streamlit version for functionality) - FIXED: Added black border styling
-col1, col2, col3 = st.columns([6, 1, 1])
-with col3:
-    # Use custom CSS class for black border
-    st.markdown("""
-    <style>
-    .clear-session-btn button {
-        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
-        color: white !important;
-        border: 2px solid #000000 !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1.2rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-    }
-    .clear-session-btn button:hover {
-        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
-        transform: translateY(-1px) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+def display_analysis_results(results, job_description):
+    """Display analysis results with improved formatting"""
+    if not results:
+        st.warning("No analysis results to display.")
+        return
     
-    if st.button("🔄 Clear Session", help="Clear all data and start fresh", key="clear_btn", use_container_width=True):
-        clear_session()
-        st.rerun()
-
-# Mode Selector
-render_feature_card("Choose Analysis Mode")
-
-analysis_mode = st.radio(
-    "",
-    ["🧑‍💼 Single Candidate Analysis", "📁 Batch Processing (up to 5 files)"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
-
-if analysis_mode == "🧑‍💼 Single Candidate Analysis":
-    # LinkedIn Profile Helper - FIXED: Removed blank button
-    render_feature_card("🔗 LinkedIn Profile Helper")
-    profile_url = render_linkedin_helper()
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["📊 Rankings", "📋 Detailed Analysis", "📄 Export"])
     
-    # Copy-paste guide
-    render_copy_paste_guide()
-    
-    # Main analysis form
-    render_feature_card("📊 Candidate Analysis")
-    
-    with st.form("single_analyzer", clear_on_submit=False):
-        job_desc = st.text_area(
-            "📝 Job Description", 
-            height=200,
-            placeholder="Paste the complete job description here...\n\nInclude:\n• Job title and department\n• Key responsibilities\n• Required qualifications\n• Preferred skills\n• Experience requirements",
-            help="Paste the full job description for accurate matching analysis"
-        )
+    with tab1:
+        # Sort candidates by overall score
+        sorted_results = sorted(results, key=lambda x: x.get('overall_score', 0), reverse=True)
         
-        profile_text = st.text_area(
-            "👤 Candidate Profile / LinkedIn Text", 
-            height=220,
-            placeholder="Paste the candidate's LinkedIn profile or CV text here...\n\nInclude all relevant sections:\n• Professional summary\n• Work experience\n• Skills and endorsements\n• Education and certifications",
-            help="Copy and paste text from LinkedIn profile or CV"
-        )
+        # Display top candidates
+        st.subheader("🏆 Candidate Rankings")
         
-        uploaded_file = st.file_uploader(
-            "📎 Or Upload CV/Resume File (Optional)", 
-            type=["pdf", "docx"],
-            help="Upload a PDF or Word document instead of copy-pasting text"
-        )
+        for i, result in enumerate(sorted_results, 1):
+            score = result.get('overall_score', 0)
+            name = result.get('candidate_name', 'Unknown Candidate')
+            
+            # Color code based on score
+            if score >= 80:
+                color = "#2E8B57"  # Sea Green
+                emoji = "🌟"
+            elif score >= 60:
+                color = "#DAA520"  # Golden Rod
+                emoji = "⭐"
+            else:
+                color = "#CD5C5C"  # Indian Red
+                emoji = "📋"
+            
+            with st.container():
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(90deg, {color}20 0%, transparent 100%);
+                    border-left: 4px solid {color};
+                    padding: 15px;
+                    margin: 10px 0;
+                    border-radius: 5px;
+                ">
+                    <h4 style="color: {color}; margin: 0;">{emoji} #{i} {name}</h4>
+                    <p style="font-size: 18px; font-weight: bold; margin: 5px 0;">
+                        Overall Score: {score}%
+                    </p>
+                    <p style="margin: 0; opacity: 0.8;">
+                        Skills: {result.get('skills_score', 0)}% | 
+                        Experience: {result.get('experience_score', 0)}% | 
+                        Education: {result.get('education_score', 0)}%
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    with tab2:
+        # Detailed analysis for each candidate
+        st.subheader("📋 Detailed Candidate Analysis")
         
-        col1, col2, col3 = st.columns([2, 1, 1])
+        for result in sorted_results:
+            name = result.get('candidate_name', 'Unknown Candidate')
+            with st.expander(f"📄 {name} - {result.get('overall_score', 0)}%"):
+                
+                col1, col2 = st.columns([1, 2])
+                
+                with col1:
+                    st.markdown("**Scores Breakdown:**")
+                    scores = {
+                        "Skills Match": result.get('skills_score', 0),
+                        "Experience": result.get('experience_score', 0),
+                        "Education": result.get('education_score', 0)
+                    }
+                    
+                    for category, score in scores.items():
+                        st.metric(category, f"{score}%")
+                
+                with col2:
+                    st.markdown("**Detailed Analysis:**")
+                    
+                    # Skills analysis
+                    if 'skills_analysis' in result:
+                        st.markdown("**🔧 Skills Analysis:**")
+                        st.write(result['skills_analysis'])
+                    
+                    # Experience analysis
+                    if 'experience_analysis' in result:
+                        st.markdown("**💼 Experience Analysis:**")
+                        st.write(result['experience_analysis'])
+                    
+                    # Recommendations
+                    if 'recommendations' in result:
+                        st.markdown("**💡 Recommendations:**")
+                        st.write(result['recommendations'])
+    
+    with tab3:
+        # Export options
+        st.subheader("📄 Export Results")
+        
+        col1, col2 = st.columns(2)
+        
         with col1:
-            submitted = st.form_submit_button("🚀 Analyze Candidate", type="primary", use_container_width=True)
-    
-    if submitted:
-        if not job_desc.strip():
-            st.error("❌ Job Description is required for analysis.")
-            st.stop()
+            if st.button("📊 Generate Excel Report", use_container_width=True):
+                excel_data = create_excel_report(results)
+                st.download_button(
+                    label="⬇️ Download Excel Report",
+                    data=excel_data,
+                    file_name=f"resume_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
         
-        if not profile_text.strip() and not uploaded_file:
-            st.error("❌ Please provide either candidate text or upload a CV file.")
-            st.stop()
-        
-        # Extract file text if uploaded
-        file_text = extract_text(uploaded_file) if uploaded_file else ""
-        
-        # Show processing animation
-        with st.spinner("🤖 AI is analyzing the candidate profile..."):
-            progress_bar = st.progress(0)
-            for i in range(100):
-                time.sleep(0.01)
-                progress_bar.progress(i + 1)
-            
-            report, error = analyze_single_candidate(job_desc, profile_text, file_text)
-        
-        if error:
-            st.error(f"❌ Analysis error: {error}")
-            st.stop()
-        
-        # Store results
-        st.session_state["last_report"] = report
-        st.session_state["linkedin_url"] = profile_url.strip()
-        
-        st.success("✅ Analysis completed successfully!")
+        with col2:
+            if st.button("📑 Generate PDF Report", use_container_width=True):
+                pdf_data = generate_comparison_pdf(results, job_description)
+                if pdf_data:
+                    st.download_button(
+                        label="⬇️ Download PDF Report",
+                        data=pdf_data,
+                        file_name=f"resume_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
 
-else:
-    # Batch processing interface - FIXED: Removed gibberish content
-    st.markdown("""
-    <div class="feature-card">
-        <h3>📁 Batch Processing Mode</h3>
-        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%); 
-                    padding: 1rem; border-radius: 8px; border: 2px solid #000000; margin-top: 0.5rem;">
-            <p style="margin: 0; color: #1e40af; font-weight: 500;">
-                📋 Upload up to 5 CV files (PDF/DOCX) for batch analysis against a single job description.
-            </p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    with st.form("batch_analyzer", clear_on_submit=False):
-        job_desc = st.text_area(
-            "📝 Job Description", 
-            height=200,
-            placeholder="Paste the complete job description here...\n\nThis will be used to analyze all uploaded CVs",
-            help="All CV files will be analyzed against this job description"
-        )
-        
-        uploaded_files = st.file_uploader(
-            "📎 Upload CV Files (PDF / DOCX)",
-            type=["pdf", "docx"],
-            accept_multiple_files=True,
-            help="Select up to 5 CV files for batch processing"
-        )
-        
-        if uploaded_files:
-            st.info(f"📄 **{len(uploaded_files)} files selected:** {', '.join([f.name for f in uploaded_files])}")
-        
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            batch_submitted = st.form_submit_button("🚀 Analyze Batch", type="primary", use_container_width=True)
-    
-    if batch_submitted:
-        if not job_desc.strip():
-            st.error("❌ Job Description is required for batch analysis.")
-            st.stop()
-        
-        if not uploaded_files:
-            st.error("❌ Please upload at least one CV file.")
-            st.stop()
-        
-        if len(uploaded_files) > 5:
-            st.error("❌ Maximum 5 files allowed for batch processing.")
-            st.stop()
-        
-        # Process batch with enhanced UI
-        batch_reports = []
-        
-        # Create progress tracking
-        progress_container = st.container()
-        with progress_container:
-            st.markdown("### 🔄 Processing Files...")
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            # Process each file
-            for i, uploaded_file in enumerate(uploaded_files):
-                status_text.markdown(f"**Processing:** `{uploaded_file.name}` ({i+1}/{len(uploaded_files)})")
-                
-                file_text = extract_text(uploaded_file)
-                if not file_text.strip():
-                    st.warning(f"⚠️ Could not extract text from `{uploaded_file.name}`. Skipping...")
-                    progress_bar.progress((i + 1) / len(uploaded_files))
-                    continue
-                
-                # Analyze with AI
-                with st.spinner(f"🤖 AI analyzing {uploaded_file.name}..."):
-                    report, error = analyze_single_candidate(job_desc, "", file_text)
-                
-                if error:
-                    st.error(f"❌ Error analyzing `{uploaded_file.name}`: {error}")
-                    progress_bar.progress((i + 1) / len(uploaded_files))
-                    continue
-                
-                # Extract candidate name
-                candidate_name = extract_candidate_name_from_ai_report(report)
-                if not candidate_name or candidate_name == "Unknown Candidate":
-                    candidate_name = extract_candidate_name(file_text)
-                
-                # Show extraction result
-                st.success(f"✅ **Processed:** `{uploaded_file.name}` → **Candidate:** `{candidate_name}`")
-                
-                batch_reports.append({
-                    'report': report,
-                    'filename': uploaded_file.name,
-                    'candidate_name': candidate_name
-                })
-                
-                progress_bar.progress((i + 1) / len(uploaded_files))
-                time.sleep(0.3)  # Small delay for better UX
-            
-            status_text.markdown("✅ **Batch processing completed!**")
-        
-        if batch_reports:
-            st.session_state["batch_reports"] = batch_reports
-            st.session_state["batch_job_desc"] = job_desc
-
-# Display results for single candidate
-if "last_report" in st.session_state and analysis_mode == "🧑‍💼 Single Candidate Analysis":
-    report = st.session_state["last_report"]
-    
-    render_analysis_card("✅ Analysis Results")
-    
-    # Download buttons
-    col1, col2 = st.columns(2)
-    with col1:
-        pdf_data = build_pdf(report, st.session_state.get("linkedin_url", ""))
-        st.download_button(
-            "📄 Download PDF Report", 
-            data=pdf_data, 
-            file_name=f"ResumeAlign_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", 
-            mime="application/pdf",
-            use_container_width=True
-        )
-    
-    with col2:
-        st.download_button(
-            "💾 Download JSON Data", 
-            data=json.dumps(report, indent=2), 
-            file_name=f"ResumeAlign_Data_{datetime.now().strftime('%Y%m%d_%H%M')}.json", 
-            mime="application/json",
-            use_container_width=True
-        )
-    
-    # Results display - FIXED: Proper header alignment without separate buttons
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🎯 Alignment Score", f"{percentage}%", f"{score}/10")
-    with col2:
-        experience = report['experience_years']['raw_estimate']
-        confidence = report['experience_years']['confidence']
-        st.metric("💼 Experience Level", experience, f"{confidence} confidence")
-    with col3:
-        recommendation = report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
-        st.metric("📋 Recommendation", recommendation)
-    
-    # FIXED: Streamlined sections without problematic button styling
-    st.markdown("### 📝 Candidate Summary")
-    st.write(report["candidate_summary"])
-    
-    # Strengths and improvements
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### ✅ Key Strengths")
-        for i, strength in enumerate(report["strengths"], 1):
-            st.markdown(f"**{i}.** {strength}")
-    
-    with col2:
-        st.markdown("### 🎯 Areas for Development")
-        for i, area in enumerate(report["areas_for_improvement"], 1):
-            st.markdown(f"**{i}.** {area}")
-    
-    # Interview questions
-    st.markdown("### 🤔 Suggested Interview Questions")
-    for i, question in enumerate(report["suggested_interview_questions"], 1):
-        st.markdown(f"**{i}.** {question}")
-    
-    # Final recommendation
-    st.markdown("### 🎯 Final Recommendation")
-    st.markdown(f"**Decision:** {report['next_round_recommendation']}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Display results for batch processing - FIXED: Complete functionality restored
-if "batch_reports" in st.session_state and analysis_mode == "📁 Batch Processing (up to 5 files)":
-    batch_reports = st.session_state["batch_reports"]
-    job_desc = st.session_state["batch_job_desc"]
-    
-    render_analysis_card(f"✅ Batch Analysis Complete - {len(batch_reports)} Candidates Processed")
-    
-    # Download options - FIXED: Both buttons now work
-    col1, col2 = st.columns(2)
-    with col1:
-        zip_data = create_batch_zip(batch_reports, job_desc)
-        st.download_button(
-            "📦 Download All Reports (ZIP)",
-            data=zip_data,
-            file_name=f"ResumeAlign_Batch_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
-            mime="application/zip",
-            use_container_width=True
-        )
-    
-    with col2:
-        summary_json = {
-            "job_description": job_desc,
-            "analysis_date": datetime.now().strftime("%d %B %Y"),
-            "total_candidates": len(batch_reports),
-            "candidates": [
-                {
-                    "candidate_name": r['candidate_name'],
-                    "filename": r['filename'],
-                    "alignment_score": r['report']['alignment_score'],
-                    "alignment_percentage": int((r['report']['alignment_score'] / 10) * 100),
-                    "recommendation": r['report']['next_round_recommendation'],
-                    "experience": r['report']['experience_years']['raw_estimate']
-                } for r in batch_reports
-            ]
-        }
-        
-        st.download_button(
-            "📊 Download Summary (JSON)",
-            data=json.dumps(summary_json, indent=2),
-            file_name=f"ResumeAlign_Summary_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
-    
-    # Summary overview - FIXED: Streamlined headers
-    st.markdown("### 📊 Batch Results Overview")
-    
-    # Create enhanced summary data
-    summary_data = []
-    for i, report_data in enumerate(batch_reports, 1):
-        report = report_data['report']
-        candidate_name = report_data['candidate_name']
-        filename = report_data['filename']
-        
-        display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
-        score = report['alignment_score']
-        percentage = int((score / 10) * 100)
-        
-        # Determine status emoji based on score
-        if percentage >= 80:
-            status = "🟢 Excellent"
-        elif percentage >= 60:
-            status = "🟡 Good"
-        elif percentage >= 40:
-            status = "🟠 Fair"
-        else:
-            status = "🔴 Poor"
-        
-        summary_data.append({
-            "Rank": f"#{i}",
-            "Candidate": display_name,
-            "Score": f"{percentage}%",
-            "Status": status,
-            "Experience": report['experience_years']['raw_estimate'],
-            "Recommendation": report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
+def create_excel_report(results):
+    """Create an Excel report with analysis results"""
+    # Create DataFrame
+    data = []
+    for result in results:
+        data.append({
+            'Candidate Name': result.get('candidate_name', 'Unknown'),
+            'Overall Score': result.get('overall_score', 0),
+            'Skills Score': result.get('skills_score', 0),
+            'Experience Score': result.get('experience_score', 0),
+            'Education Score': result.get('education_score', 0),
+            'Skills Analysis': result.get('skills_analysis', ''),
+            'Experience Analysis': result.get('experience_analysis', ''),
+            'Recommendations': result.get('recommendations', '')
         })
     
-    # Sort by score descending
-    summary_data.sort(key=lambda x: int(x["Score"].replace('%', '')), reverse=True)
-    for i, item in enumerate(summary_data, 1):
-        item["Rank"] = f"#{i}"
+    df = pd.DataFrame(data)
     
-    st.dataframe(summary_data, use_container_width=True, hide_index=True)
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Analysis Results', index=False)
+        
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Analysis Results']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
     
-    # Individual candidate details - FIXED: Streamlined header
-    st.markdown("### 👥 Individual Candidate Reports")
-    
-    for i, report_data in enumerate(batch_reports, 1):
-        report = report_data['report']
-        filename = report_data['filename']
-        candidate_name = report_data['candidate_name']
-        
-        display_name = candidate_name if candidate_name != "Unknown Candidate" else filename
-        score = report['alignment_score']
-        percentage = int((score / 10) * 100)
-        
-        # Status indicator
-        if percentage >= 80:
-            indicator = "🟢"
-        elif percentage >= 60:
-            indicator = "🟡"
-        elif percentage >= 40:
-            indicator = "🟠"
-        else:
-            indicator = "🔴"
-        
-        with st.expander(f"{indicator} **{display_name}** ({percentage}%) - {filename}", expanded=False):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("🎯 Alignment", f"{percentage}%")
-            with col2:
-                st.metric("💼 Experience", report['experience_years']['raw_estimate'])
-            with col3:
-                recommendation = report['next_round_recommendation'].split(' - ')[0] if ' - ' in report['next_round_recommendation'] else report['next_round_recommendation']
-                st.metric("📋 Decision", recommendation)
-            
-            st.markdown("**📝 Summary:**")
-            st.write(report["candidate_summary"])
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**✅ Strengths:**")
-                for strength in report["strengths"]:
-                    st.markdown(f"• {strength}")
-            
-            with col2:
-                st.markdown("**🎯 Development Areas:**")
-                for area in report["areas_for_improvement"]:
-                    st.markdown(f"• {area}")
-            
-            st.markdown("**🤔 Interview Questions:**")
-            for j, question in enumerate(report["suggested_interview_questions"], 1):
-                st.markdown(f"{j}. {question}")
-            
-            st.markdown("**🎯 Final Recommendation:**")
-            st.info(report['next_round_recommendation'])
+    return output.getvalue()
 
-# Footer - FIXED: Removed "Built with love by Streamlit & Google Gemini AI" as requested
-render_app_footer()
+def main():
+    # Configure page
+    st.set_page_config(
+        page_title="ResumeAlign - AI-Powered Resume Analysis",
+        page_icon="🎯",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Apply custom CSS
+    apply_custom_css()
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Render header
+    render_header()
+    
+    # Sidebar
+    with st.sidebar:
+        render_sidebar()
+        
+        # Clear session button with improved styling
+        if st.button("🗑️ Clear Session", 
+                    use_container_width=True, 
+                    help="Clear all analysis results and start fresh"):
+            clear_session()
+        
+        # Show analysis history count
+        if st.session_state.analysis_results:
+            st.info(f"📊 {len(st.session_state.analysis_results)} candidates analyzed")
+    
+    # Main content area
+    st.markdown("## 🎯 Smart Resume Analysis")
+    
+    # Job description input
+    with st.container():
+        st.markdown("### 📋 Job Description")
+        job_desc = st.text_area(
+            "Enter the job description to analyze resumes against:",
+            value=st.session_state.get('job_description', ''),
+            height=200,
+            placeholder="Paste the job description here including required skills, experience, and qualifications...",
+            key="job_desc_input"
+        )
+        
+        if job_desc != st.session_state.job_description:
+            st.session_state.job_description = job_desc
+    
+    # Analysis tabs
+    tab1, tab2 = st.tabs(["📄 Single Resume Analysis", "📁 Batch Analysis"])
+    
+    with tab1:
+        st.markdown("### 📄 Analyze Single Resume")
+        
+        uploaded_file = st.file_uploader(
+            "Upload resume (PDF, DOCX, or TXT)",
+            type=['pdf', 'docx', 'txt'],
+            key="single_file",
+            help="Select a resume file to analyze against the job description"
+        )
+        
+        if uploaded_file and st.session_state.job_description:
+            col1, col2 = st.columns([3, 1])
+            
+            with col2:
+                analyze_button = st.button(
+                    "🔍 Analyze Resume",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            if analyze_button:
+                with st.spinner("🔄 Analyzing resume..."):
+                    try:
+                        # Extract text from file
+                        file_text = extract_text_from_file(uploaded_file)
+                        
+                        if file_text:
+                            # Generate candidate hash for caching
+                            candidate_hash = generate_candidate_hash(file_text, uploaded_file.name)
+                            
+                            # Check cache first
+                            cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
+                            
+                            if cache_key in st.session_state.candidate_cache:
+                                st.info("📋 Using cached analysis results")
+                                result = st.session_state.candidate_cache[cache_key]
+                            else:
+                                # Analyze resume
+                                result = analyze_single_candidate(
+                                    file_text, 
+                                    st.session_state.job_description, 
+                                    uploaded_file.name
+                                )
+                                
+                                # Cache the result
+                                st.session_state.candidate_cache[cache_key] = result
+                            
+                            if result:
+                                # Add to results
+                                result['timestamp'] = datetime.now()
+                                st.session_state.analysis_results.append(result)
+                                
+                                st.success("✅ Analysis completed!")
+                                
+                                # Display immediate results
+                                display_analysis_results([result], st.session_state.job_description)
+                            else:
+                                st.error("❌ Analysis failed. Please try again.")
+                        else:
+                            st.error("❌ Could not extract text from the uploaded file.")
+                    
+                    except Exception as e:
+                        logger.error(f"Single analysis error: {str(e)}")
+                        st.error(f"❌ Analysis failed: {str(e)}")
+    
+    with tab2:
+        st.markdown("### 📁 Batch Resume Analysis")
+        
+        uploaded_files = st.file_uploader(
+            "Upload multiple resumes",
+            type=['pdf', 'docx', 'txt'],
+            accept_multiple_files=True,
+            key="batch_files",
+            help="Select multiple resume files for batch analysis"
+        )
+        
+        if uploaded_files and st.session_state.job_description:
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                st.write(f"📁 {len(uploaded_files)} files selected")
+            
+            with col3:
+                analyze_batch_button = st.button(
+                    "🔍 Analyze All",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            if analyze_batch_button:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    batch_results = []
+                    
+                    for i, uploaded_file in enumerate(uploaded_files):
+                        status_text.text(f"🔄 Analyzing {uploaded_file.name}...")
+                        progress_bar.progress((i + 1) / len(uploaded_files))
+                        
+                        # Extract text
+                        file_text = extract_text_from_file(uploaded_file)
+                        
+                        if file_text:
+                            # Generate candidate hash for caching
+                            candidate_hash = generate_candidate_hash(file_text, uploaded_file.name)
+                            cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
+                            
+                            # Check cache first
+                            if cache_key in st.session_state.candidate_cache:
+                                result = st.session_state.candidate_cache[cache_key]
+                                status_text.text(f"📋 Using cached result for {uploaded_file.name}")
+                            else:
+                                # Analyze with consistent settings
+                                result = analyze_single_candidate(
+                                    file_text, 
+                                    st.session_state.job_description, 
+                                    uploaded_file.name,
+                                    batch_mode=True  # Use consistent settings for batch
+                                )
+                                
+                                # Cache the result
+                                if result:
+                                    st.session_state.candidate_cache[cache_key] = result
+                            
+                            if result:
+                                result['timestamp'] = datetime.now()
+                                batch_results.append(result)
+                        
+                        # Small delay to prevent rate limiting
+                        time.sleep(0.5)
+                    
+                    progress_bar.progress(1.0)
+                    status_text.text("✅ Batch analysis completed!")
+                    
+                    if batch_results:
+                        # Add to session state
+                        st.session_state.analysis_results.extend(batch_results)
+                        
+                        st.success(f"✅ Successfully analyzed {len(batch_results)} resumes!")
+                        
+                        # Display results
+                        display_analysis_results(batch_results, st.session_state.job_description)
+                    else:
+                        st.error("❌ No resumes could be analyzed.")
+                
+                except Exception as e:
+                    logger.error(f"Batch analysis error: {str(e)}")
+                    st.error(f"❌ Batch analysis failed: {str(e)}")
+                
+                finally:
+                    progress_bar.empty()
+                    status_text.empty()
+    
+    # Display existing results if any
+    if st.session_state.analysis_results:
+        st.markdown("---")
+        st.markdown("## 📊 Analysis Results")
+        display_analysis_results(st.session_state.analysis_results, st.session_state.job_description)
+
+if __name__ == "__main__":
+    main()
