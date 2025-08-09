@@ -7,6 +7,9 @@ import json
 import google.generativeai as genai
 import os
 
+# Confirm the module is loading
+print("✅ ai_analysis module loaded")
+
 # Configure Gemini AI
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
@@ -74,13 +77,12 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
         response = model.generate_content(
             [SYSTEM_PROMPT, prompt],
             generation_config=genai.types.GenerationConfig(
-                temperature=0.3,  # Lower temperature for more consistency
+                temperature=0.3,
                 candidate_count=1,
                 max_output_tokens=2048,
             )
         )
         
-        # Clean up response text
         response_text = response.text.strip()
         
         # Remove markdown formatting if present
@@ -94,7 +96,6 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
         # Parse JSON
         report = json.loads(response_text)
         
-        # Validate required fields
         required_fields = [
             'alignment_score', 'experience_years', 'candidate_summary',
             'areas_for_improvement', 'strengths', 'suggested_interview_questions',
@@ -105,7 +106,6 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
             if field not in report:
                 return None, f"Missing required field: {field}"
         
-        # Ensure alignment_score is within valid range
         if not isinstance(report['alignment_score'], int) or not (0 <= report['alignment_score'] <= 10):
             return None, "Invalid alignment_score: must be integer between 0-10"
         
@@ -114,7 +114,7 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
     except json.JSONDecodeError as e:
         return None, f"JSON parsing error: {str(e)}"
     except Exception as e:
-        return None, f"Analysis error: {str(e)}")
+        return None, f"Analysis error: {str(e)}"
 
 
 def extract_candidate_name_from_summary(summary):
@@ -122,22 +122,18 @@ def extract_candidate_name_from_summary(summary):
     if not summary:
         return None
     
-    # Look for name at the beginning of summary
     words = summary.split()
     if len(words) >= 2:
-        # Check if first 2-3 words look like a name
         potential_name = " ".join(words[:3])
         if any(char.isalpha() for char in potential_name) and not any(char.isdigit() for char in potential_name):
-            # Basic name validation
             name_words = potential_name.split()
             if all(word[0].isupper() for word in name_words if word):
                 return potential_name
         
-        # Try first 2 words
         potential_name = " ".join(words[:2])
         if any(char.isalpha() for char in potential_name) and not any(char.isdigit() for char in potential_name):
             name_words = potential_name.split()
             if all(word[0].isupper() for word in name_words if word):
                 return potential_name
     
-    return None, f"Analysis error: {str(e)}
+    return None
