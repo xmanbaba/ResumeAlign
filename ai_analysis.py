@@ -1,14 +1,6 @@
-"""
-AI Analysis module for ResumeAlign - IMPROVED VERSION
-Handles Gemini AI integration for resume analysis with enhanced consistency
-"""
-
 import json
 import google.generativeai as genai
 import os
-
-# Confirm the module is loading
-print("✅ ai_analysis module loaded")
 
 # Configure Gemini AI
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -73,7 +65,6 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
     prompt = build_prompt(job_desc, profile_text, file_text)
     
     try:
-        # Use temperature=0.3 for more consistent results while maintaining quality
         response = model.generate_content(
             [SYSTEM_PROMPT, prompt],
             generation_config=genai.types.GenerationConfig(
@@ -82,35 +73,39 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
                 max_output_tokens=2048,
             )
         )
-        
-        response_text = response.text.strip()
-        
+
+        # ✅ Safety check: ensure response contains usable content
+        if not response.parts or not response.parts[0].text.strip():
+            return None, "AI response was blocked or empty. Please check input formatting or try again."
+
+        response_text = response.parts[0].text.strip()
+
         # Remove markdown formatting if present
         if response_text.startswith("```json"):
             response_text = response_text[7:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
-        
+
         response_text = response_text.strip()
-        
+
         # Parse JSON
         report = json.loads(response_text)
-        
+
         required_fields = [
             'alignment_score', 'experience_years', 'candidate_summary',
             'areas_for_improvement', 'strengths', 'suggested_interview_questions',
             'next_round_recommendation', 'sources_used'
         ]
-        
+
         for field in required_fields:
             if field not in report:
                 return None, f"Missing required field: {field}"
-        
+
         if not isinstance(report['alignment_score'], int) or not (0 <= report['alignment_score'] <= 10):
             return None, "Invalid alignment_score: must be integer between 0-10"
-        
+
         return report, None
-        
+
     except json.JSONDecodeError as e:
         return None, f"JSON parsing error: {str(e)}"
     except Exception as e:
@@ -121,7 +116,7 @@ def extract_candidate_name_from_summary(summary):
     """Extract candidate name from the beginning of the summary"""
     if not summary:
         return None
-    
+
     words = summary.split()
     if len(words) >= 2:
         potential_name = " ".join(words[:3])
@@ -129,11 +124,11 @@ def extract_candidate_name_from_summary(summary):
             name_words = potential_name.split()
             if all(word[0].isupper() for word in name_words if word):
                 return potential_name
-        
+
         potential_name = " ".join(words[:2])
         if any(char.isalpha() for char in potential_name) and not any(char.isdigit() for char in potential_name):
             name_words = potential_name.split()
             if all(word[0].isupper() for word in name_words if word):
                 return potential_name
-    
+
     return None
