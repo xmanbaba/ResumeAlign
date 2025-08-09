@@ -6,8 +6,8 @@ import os
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# Enhanced system prompt for more consistent results
-SYSTEM_PROMPT = """You are a professional HR analyst. Your task is to provide consistent, objective analysis of candidates against job requirements. 
+# Enhanced system prompt for consistent analysis
+SYSTEM_PROMPT = """You are a professional HR analyst. Your task is to provide consistent, objective analysis of candidates against job requirements.
 
 IMPORTANT GUIDELINES:
 1. Be consistent in your scoring - similar candidates with similar qualifications should receive similar scores
@@ -27,9 +27,7 @@ Be thorough and consistent in your evaluation."""
 
 
 def build_prompt(jd, profile_text, file_text):
-    """Build the enhanced analysis prompt for Gemini AI with better consistency"""
     extra = file_text.strip() if file_text.strip() else "None provided"
-    
     return f"""ANALYZE this candidate against the job requirements and return ONLY valid JSON.
 
 JOB DESCRIPTION:
@@ -52,18 +50,17 @@ Return ONLY this JSON structure (no additional text or formatting):
  "alignment_score": <0-10 integer>,
  "experience_years": {{"raw_estimate": "<specific years/level>", "confidence": "<High|Medium|Low>", "source": "<Manual text|File>"}},
  "candidate_summary": "<Start with candidate name. 250-300 words professional summary>",
- "areas_for_improvement": ["<specific area 1>","<specific area 2>","<specific area 3>","<specific area 4>","<specific area 5>"],
- "strengths": ["<specific strength 1>","<specific strength 2>","<specific strength 3>","<specific strength 4>","<specific strength 5>"],
- "suggested_interview_questions": ["<question 1>","<question 2>","<question 3>","<question 4>","<question 5>"],
+ "areas_for_improvement": ["<specific area 1>", "<specific area 2>", "<specific area 3>", "<specific area 4>", "<specific area 5>"],
+ "strengths": ["<specific strength 1>", "<specific strength 2>", "<specific strength 3>", "<specific strength 4>", "<specific strength 5>"],
+ "suggested_interview_questions": ["<question 1>", "<question 2>", "<question 3>", "<question 4>", "<question 5>"],
  "next_round_recommendation": "<Yes|No|Maybe> - <brief specific reason based on analysis>",
  "sources_used": ["<Manual text|File>"]
 }}"""
 
 
 def analyze_single_candidate(job_desc, profile_text, file_text=""):
-    """Analyze a single candidate and return the report with improved consistency"""
     prompt = build_prompt(job_desc, profile_text, file_text)
-    
+
     try:
         response = model.generate_content(
             [SYSTEM_PROMPT, prompt],
@@ -74,8 +71,8 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
             )
         )
 
-        # ✅ Safety check: ensure response contains usable content
-        if not response.parts or not response.parts[0].text.strip():
+        # ✅ SAFETY CHECK: Ensure response contains usable content
+        if not response.parts or not hasattr(response.parts[0], "text") or not response.parts[0].text.strip():
             return None, "AI response was blocked or empty. Please check input formatting or try again."
 
         response_text = response.parts[0].text.strip()
@@ -113,7 +110,6 @@ def analyze_single_candidate(job_desc, profile_text, file_text=""):
 
 
 def extract_candidate_name_from_summary(summary):
-    """Extract candidate name from the beginning of the summary"""
     if not summary:
         return None
 
