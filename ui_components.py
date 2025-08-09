@@ -1,524 +1,498 @@
-"""
-UI Components and CSS styling for ResumeAlign
-Contains all styling and reusable UI components - FIXED VERSION
-"""
-
 import streamlit as st
-
+from datetime import datetime
 
 def apply_custom_css():
-    """Apply modern CSS styling with ResumeAlign brand colors and requested improvements"""
+    """Apply custom CSS styling to the application"""
     st.markdown("""
     <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    /* Global Styles */
-    .stApp {
-        font-family: 'Inter', sans-serif;
-        background: #ffffff;
-        min-height: 100vh;
-    }
-    
-    /* Logo Header Container */
-    .logo-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #ffffff;
-        padding: 1rem 2rem;
-        border-bottom: 2px solid #E53E3E;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 10px rgba(229, 62, 62, 0.1);
-    }
-    
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    
-    .logo-image {
-        height: 50px;
-        width: auto;
-    }
-    
-    .logo-text {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #E53E3E;
-        margin: 0;
-    }
-    
-    /* Main Container */
-    .main > div {
-        padding-top: 1rem;
+    /* Main app styling */
+    .main .block-container {
+        padding-top: 2rem;
         padding-bottom: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-        background: #ffffff;
     }
     
-    /* Header Styling - Reduced height */
-    .main-header {
-        background: #ffffff;
-        border: 2px solid #000000;
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem 1rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     
-    .main-title {
-        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+    .header-title {
         font-size: 2.5rem;
         font-weight: 700;
-        text-align: center;
         margin: 0;
-        letter-spacing: -0.02em;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
-    .main-subtitle {
-        text-align: center;
-        color: #2D3748;
-        font-size: 1.1rem;
-        margin-top: 0.5rem;
-        font-weight: 400;
+    .header-subtitle {
+        font-size: 1.2rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
     }
     
-    /* Feature Button Cards - Black borders and properly aligned headers */
-    .feature-card {
-        background: #ffffff;
-        border: 2px solid #000000;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s ease;
-        min-height: auto;
-        height: auto;
-    }
-    
-    .feature-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
-        border-color: #E53E3E;
-    }
-    
-    .feature-card h3 {
-        color: #1e293b;
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-        font-size: 1.1rem;
-        text-align: center;
-        padding: 0.5rem;
-        background: rgba(229, 62, 62, 0.05);
-        border-radius: 8px;
-        border: 1px solid rgba(229, 62, 62, 0.2);
-    }
-    
-    /* Analysis Cards - Black borders and properly aligned headers */
-    .analysis-card {
-        background: #ffffff;
-        border: 2px solid #000000;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s ease;
-    }
-    
-    .analysis-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-        border-color: #E53E3E;
-    }
-    
-    /* Ensure all section headers are properly aligned in their button boxes */
-    .analysis-card h3 {
-        color: #059669;
-        margin-bottom: 1rem;
-        font-weight: 600;
-        text-align: center;
-        padding: 0.8rem;
-        background: rgba(5, 150, 105, 0.05);
-        border-radius: 8px;
-        border: 1px solid rgba(5, 150, 105, 0.2);
-    }
-    
-    /* Mode Selector - Black borders */
-    .stRadio > label {
-        background: #ffffff;
-        padding: 0.8rem 1.2rem;
-        border-radius: 8px;
-        margin: 0.3rem 0;
-        border: 2px solid #000000;
-        transition: all 0.3s ease;
-        min-height: auto;
-    }
-    
-    .stRadio > label:hover {
-        border-color: #E53E3E;
-        background: rgba(229, 62, 62, 0.05);
-    }
-    
-    /* Form Elements - Black borders */
-    .stTextArea textarea, .stTextInput input {
-        border: 2px solid #000000 !important;
-        border-radius: 8px !important;
-        padding: 0.8rem !important;
-        font-family: 'Inter', sans-serif !important;
-        transition: all 0.3s ease !important;
-        background: #ffffff !important;
-    }
-    
-    .stTextArea textarea:focus, .stTextInput input:focus {
-        border-color: #E53E3E !important;
-        box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1) !important;
-    }
-    
-    /* Compact text areas */
-    .stTextArea textarea {
-        min-height: 120px !important;
-    }
-    
-    /* Buttons - Properly aligned and reduced height */
+    /* Button styling improvements */
     .stButton > button {
-        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%) !important;
-        color: white !important;
-        border: 2px solid #000000 !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1.5rem !important;
-        font-weight: 600 !important;
-        font-family: 'Inter', sans-serif !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 2px 10px rgba(229, 62, 62, 0.3) !important;
-        min-height: auto !important;
-        height: auto !important;
-        width: 100% !important;
-        text-align: center !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
     .stButton > button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 15px rgba(229, 62, 62, 0.4) !important;
-        background: linear-gradient(135deg, #C53030 0%, #E53E3E 100%) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
     }
     
-    .stDownloadButton > button {
-        background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%) !important;
+    /* Clear session button special styling */
+    .clear-button button {
+        background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%) !important;
         color: white !important;
-        border: 2px solid #000000 !important;
+        border: 2px solid #2d3748 !important;
         border-radius: 8px !important;
-        padding: 0.6rem 1.5rem !important;
         font-weight: 600 !important;
-        font-family: 'Inter', sans-serif !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 2px 10px rgba(45, 55, 72, 0.3) !important;
-        min-height: auto !important;
-        width: 100% !important;
-        text-align: center !important;
     }
     
-    .stDownloadButton > button:hover {
+    .clear-button button:hover {
+        background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
         transform: translateY(-1px) !important;
-        box-shadow: 0 4px 15px rgba(45, 55, 72, 0.4) !important;
-        background: linear-gradient(135deg, #1A202C 0%, #2D3748 100%) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
     }
     
-    /* File Uploader - Black border */
-    .stFileUploader {
-        background: #ffffff;
-        border: 2px solid #000000;
-        border-radius: 8px;
-        padding: 1.5rem;
+    /* File uploader styling */
+    .stFileUploader > div > div {
+        background-color: #f8fafc;
+        border: 2px dashed #cbd5e0;
+        border-radius: 10px;
+        padding: 2rem;
         text-align: center;
         transition: all 0.3s ease;
     }
     
-    .stFileUploader:hover {
-        border-color: #E53E3E;
-        background: rgba(229, 62, 62, 0.02);
+    .stFileUploader > div > div:hover {
+        border-color: #667eea;
+        background-color: #f0f4ff;
     }
     
-    /* Metrics - Black borders and compact */
-    .stMetric {
-        background: #ffffff;
-        padding: 1rem;
+    /* Text area improvements */
+    .stTextArea > div > div > textarea {
         border-radius: 8px;
-        border: 2px solid #000000;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        text-align: center;
+        border: 2px solid #e2e8f0;
+        transition: border-color 0.3s ease;
     }
     
-    /* Progress Bar */
-    .stProgress .css-1cpxqw2 {
-        background: linear-gradient(135deg, #E53E3E 0%, #C53030 100%);
-        border-radius: 6px;
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
     
-    /* Info/Success/Error Messages - Black borders */
-    .stAlert {
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #f8fafc;
+        padding: 4px;
+        border-radius: 10px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
         border-radius: 8px;
-        border: 2px solid #000000;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        padding-left: 20px;
+        padding-right: 20px;
+        background-color: transparent;
+        border: 1px solid transparent;
+        font-weight: 500;
+        transition: all 0.3s ease;
     }
     
-    /* Tables - Black borders */
-    .stTable {
-        background: #ffffff;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        border: 2px solid #000000;
-    }
-    
-    /* Expander - Black borders and compact */
-    .streamlit-expanderHeader {
-        background: #ffffff;
-        border-radius: 8px;
-        border: 2px solid #000000;
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
         font-weight: 600;
-        color: #2D3748;
-        padding: 0.8rem 1rem;
-        min-height: auto;
-        text-align: center;
     }
     
-    .streamlit-expanderHeader:hover {
-        border-color: #E53E3E;
-        background: rgba(229, 62, 62, 0.02);
+    /* Metric styling */
+    .metric-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+        margin: 0.5rem 0;
     }
     
-    /* LinkedIn Helper Section - Black border */
-    .linkedin-section {
-        background: rgba(0, 119, 181, 0.05);
-        border: 2px solid #000000;
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin: 1rem 0;
+    /* Progress bar styling */
+    .stProgress .st-bo {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
     }
     
-    /* Link Button Styling - Black border */
-    .stLinkButton > a {
-        background: linear-gradient(135deg, #0077b5 0%, #005582 100%) !important;
-        color: white !important;
-        text-decoration: none !important;
-        border: 2px solid #000000 !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1.5rem !important;
-        font-weight: 600 !important;
-        display: block !important;
-        text-align: center !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 2px 10px rgba(0, 119, 181, 0.3) !important;
-        min-height: auto !important;
-        width: 100% !important;
+    /* Alert styling */
+    .stAlert {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
-    .stLinkButton > a:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 15px rgba(0, 119, 181, 0.4) !important;
+    /* Sidebar improvements */
+    .sidebar .block-container {
+        padding-top: 1rem;
     }
     
-    /* Popover Styling - Black borders */
-    .stPopover {
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #f8fafc;
         border-radius: 8px;
-        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.15);
-        border: 2px solid #000000;
-        background: #ffffff;
+        font-weight: 600;
     }
     
-    /* Clear Button Styling */
-    .clear-button {
-        background: linear-gradient(135deg, #718096 0%, #4A5568 100%) !important;
-        border: 2px solid #000000 !important;
+    /* Success/Error message styling */
+    .stSuccess, .stError, .stWarning, .stInfo {
+        border-radius: 8px;
+        border: none;
+        font-weight: 500;
     }
     
-    .clear-button:hover {
-        background: linear-gradient(135deg, #4A5568 0%, #718096 100%) !important;
-    }
-    
-    /* Success/Error Styling - Black borders */
-    .stSuccess {
-        background: rgba(72, 187, 120, 0.1);
-        border: 2px solid #000000;
-        border-left: 4px solid #48bb78;
-        color: #22543d;
-    }
-    
-    .stError {
-        background: rgba(229, 62, 62, 0.1);
-        border: 2px solid #000000;
-        border-left: 4px solid #E53E3E;
-        color: #742a2a;
-    }
-    
-    .stInfo {
-        background: rgba(49, 130, 206, 0.1);
-        border: 2px solid #000000;
-        border-left: 4px solid #3182ce;
-        color: #2c5aa0;
-    }
-    
-    .stWarning {
-        background: rgba(237, 137, 54, 0.1);
-        border: 2px solid #000000;
-        border-left: 4px solid #ed8936;
-        color: #9c4221;
-    }
-    
-    /* Form containers - Black borders */
-    .stForm {
-        border: 2px solid #000000;
-        border-radius: 12px;
-        padding: 1.5rem;
-        background: #ffffff;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
-    
-    /* Compact spacing */
+    /* Container improvements */
     .element-container {
-        margin-bottom: 0.8rem;
+        margin-bottom: 1rem;
     }
     
-    /* Reduce column gaps */
-    .row-widget {
-        gap: 0.5rem;
+    /* Score display styling */
+    .score-high { color: #2d5a27; background: #c6f6d5; }
+    .score-medium { color: #744210; background: #fef5e7; }
+    .score-low { color: #742a2a; background: #fed7d7; }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .header-title {
+            font-size: 2rem;
+        }
+        
+        .header-subtitle {
+            font-size: 1rem;
+        }
+        
+        .main .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
     }
     
-    /* Animation for loading */
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
-    }
-    
-    .stSpinner {
-        animation: pulse 2s ease-in-out infinite;
-    }
-    
-    /* Remove default Streamlit branding adjustments */
+    /* Hide Streamlit style */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    
+    /* Custom animations */
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .slide-in {
+        animation: slideIn 0.5s ease-out;
+    }
+    
+    /* Improved spacing */
+    .block-container > div > div > div > div {
+        margin-bottom: 1rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-
-def render_logo_header():
-    """Render the ResumeAlign logo header"""
+def render_header():
+    """Render the application header with improved styling"""
     st.markdown("""
-    <div class="logo-header">
-        <div class="logo-container">
-            <svg width="50" height="35" viewBox="0 0 430 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="logo-image">
-                <rect width="430" height="300" fill="white"/>
-                <path d="M82.5 267.5L172 187.5H102L82.5 267.5Z" fill="#E53E3E"/>
-                <path d="M82.5 267.5V187.5H172C172 187.5 172 154.167 172 137.5C172 120.833 155.167 104 144.5 104C133.833 104 82.5 104 82.5 104V267.5Z" fill="#E53E3E"/>
-                <path d="M102 167H154C154 167 162 154 162 148C162 142 154 129 154 129H102V167Z" fill="white"/>
-                <path d="M117.5 157L126.5 148L141 162.5L134 169.5L117.5 157Z" fill="#233A54"/>
-                <text x="185" y="175" font-family="Segoe UI, Tahoma, Geneva, Verdana, sans-serif" font-size="42" font-weight="600" fill="#2D3748">ResumeAlign</text>
-            </svg>
+    <div class="header-container slide-in">
+        <h1 class="header-title">🎯 ResumeAlign</h1>
+        <p class="header-subtitle">AI-Powered Resume Analysis & Candidate Matching</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_sidebar():
+    """Render enhanced sidebar with navigation and info"""
+    st.markdown("### 🎯 ResumeAlign")
+    st.markdown("---")
+    
+    # App info
+    with st.expander("ℹ️ About ResumeAlign"):
+        st.markdown("""
+        **ResumeAlign** helps you find the perfect candidates by:
+        
+        ✅ **Smart Analysis** - AI-powered resume evaluation  
+        ✅ **Batch Processing** - Analyze multiple resumes at once  
+        ✅ **Detailed Scoring** - Skills, experience, and education breakdown  
+        ✅ **Export Options** - PDF and Excel reports  
+        ✅ **Consistent Results** - Reliable scoring across analyses  
+        """)
+    
+    # Quick stats
+    if 'analysis_results' in st.session_state and st.session_state.analysis_results:
+        with st.expander("📊 Current Session Stats"):
+            results = st.session_state.analysis_results
+            total_candidates = len(results)
+            avg_score = sum(r.get('overall_score', 0) for r in results) / total_candidates if total_candidates > 0 else 0
+            
+            st.metric("Candidates Analyzed", total_candidates)
+            st.metric("Average Score", f"{avg_score:.1f}%")
+            
+            # Top candidate
+            if results:
+                top_candidate = max(results, key=lambda x: x.get('overall_score', 0))
+                st.metric("Top Candidate", 
+                         top_candidate.get('candidate_name', 'Unknown'),
+                         f"{top_candidate.get('overall_score', 0)}%")
+    
+    # Usage tips
+    with st.expander("💡 Usage Tips"):
+        st.markdown("""
+        **For Best Results:**
+        
+        1️⃣ **Detailed Job Description** - Include specific skills, experience levels, and requirements
+        
+        2️⃣ **Clear Resume Format** - PDF and DOCX files work best
+        
+        3️⃣ **Batch Analysis** - Use batch mode for consistent scoring when analyzing multiple candidates
+        
+        4️⃣ **Review Results** - Check the detailed analysis for insights beyond just scores
+        """)
+    
+    st.markdown("---")
+    st.markdown("*Powered by Google Gemini AI*")
+
+def render_analysis_card(result, rank=None):
+    """Render a single analysis result card with improved styling"""
+    name = result.get('candidate_name', 'Unknown Candidate')
+    overall_score = result.get('overall_score', 0)
+    skills_score = result.get('skills_score', 0)
+    experience_score = result.get('experience_score', 0)
+    education_score = result.get('education_score', 0)
+    
+    # Determine score color
+    if overall_score >= 80:
+        score_class = "score-high"
+        score_emoji = "🌟"
+    elif overall_score >= 60:
+        score_class = "score-medium"
+        score_emoji = "⭐"
+    else:
+        score_class = "score-low"
+        score_emoji = "📋"
+    
+    rank_display = f"#{rank} " if rank else ""
+    
+    card_html = f"""
+    <div class="metric-container slide-in">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin: 0; color: #2d3748;">{score_emoji} {rank_display}{name}</h4>
+            <div class="{score_class}" style="padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                {overall_score}%
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px;">
+            <div style="text-align: center;">
+                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{skills_score}%</div>
+                <div style="font-size: 0.8em; color: #718096;">Skills</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{experience_score}%</div>
+                <div style="font-size: 0.8em; color: #718096;">Experience</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{education_score}%</div>
+                <div style="font-size: 0.8em; color: #718096;">Education</div>
+            </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    
+    st.markdown(card_html, unsafe_allow_html=True)
 
-
-def render_main_header():
-    """Render the main header section"""
-    st.markdown("""
-    <div class="main-header">
-        <p class="main-subtitle">AI-Powered Resume & CV Analysis Platform</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_feature_card(title, content=""):
-    """Render a feature card with title"""
+def render_loading_spinner(text="Processing..."):
+    """Render a custom loading spinner"""
     st.markdown(f"""
-    <div class="feature-card">
-        <h3>{title}</h3>
-        {content}
+    <div style="text-align: center; padding: 20px;">
+        <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #667eea; animation: spin 1s linear infinite;"></div>
+        <p style="margin-top: 15px; color: #667eea; font-weight: 500;">{text}</p>
     </div>
+    
+    <style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    </style>
     """, unsafe_allow_html=True)
 
+def render_score_gauge(score, label):
+    """Render a visual score gauge"""
+    # Determine color based on score
+    if score >= 80:
+        color = "#22c55e"  # Green
+    elif score >= 60:
+        color = "#f59e0b"  # Yellow
+    else:
+        color = "#ef4444"  # Red
+    
+    gauge_html = f"""
+    <div style="text-align: center; margin: 10px;">
+        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto;">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="54" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                <circle cx="60" cy="60" r="54" fill="none" stroke="{color}" stroke-width="8"
+                        stroke-dasharray="{2 * 3.14159 * 54}" 
+                        stroke-dashoffset="{2 * 3.14159 * 54 * (1 - score/100)}"
+                        transform="rotate(-90 60 60)"/>
+                <text x="60" y="65" text-anchor="middle" font-size="18" font-weight="bold" fill="{color}">
+                    {score}%
+                </text>
+            </svg>
+        </div>
+        <div style="font-weight: 600; color: #4a5568; margin-top: 5px;">{label}</div>
+    </div>
+    """
+    
+    return gauge_html
 
-def render_analysis_card(title, content=""):
-    """Render an analysis results card"""
+def render_comparison_table(results):
+    """Render a comparison table for multiple candidates"""
+    if not results:
+        return
+    
+    # Sort by overall score
+    sorted_results = sorted(results, key=lambda x: x.get('overall_score', 0), reverse=True)
+    
+    table_html = """
+    <div style="overflow-x: auto; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+            <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <tr>
+                    <th style="padding: 15px; text-align: left;">Rank</th>
+                    <th style="padding: 15px; text-align: left;">Candidate</th>
+                    <th style="padding: 15px; text-align: center;">Overall</th>
+                    <th style="padding: 15px; text-align: center;">Skills</th>
+                    <th style="padding: 15px; text-align: center;">Experience</th>
+                    <th style="padding: 15px; text-align: center;">Education</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for i, result in enumerate(sorted_results, 1):
+        name = result.get('candidate_name', 'Unknown')
+        overall = result.get('overall_score', 0)
+        skills = result.get('skills_score', 0)
+        experience = result.get('experience_score', 0)
+        education = result.get('education_score', 0)
+        
+        # Row styling based on rank
+        if i == 1:
+            row_style = "background-color: #f0fff4; border-left: 4px solid #22c55e;"
+        elif i == 2:
+            row_style = "background-color: #fffbf0; border-left: 4px solid #f59e0b;"
+        elif i == 3:
+            row_style = "background-color: #fef2f2; border-left: 4px solid #ef4444;"
+        else:
+            row_style = "background-color: #f8fafc;"
+        
+        table_html += f"""
+                <tr style="{row_style}">
+                    <td style="padding: 12px; font-weight: bold;">#{i}</td>
+                    <td style="padding: 12px; font-weight: 600;">{name}</td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; color: #2d3748;">{overall}%</td>
+                    <td style="padding: 12px; text-align: center;">{skills}%</td>
+                    <td style="padding: 12px; text-align: center;">{experience}%</td>
+                    <td style="padding: 12px; text-align: center;">{education}%</td>
+                </tr>
+        """
+    
+    table_html += """
+            </tbody>
+        </table>
+    </div>
+    """
+    
+    st.markdown(table_html, unsafe_allow_html=True)
+
+def render_success_message(message, icon="✅"):
+    """Render a custom success message"""
     st.markdown(f"""
-    <div class="analysis-card">
-        <h3>{title}</h3>
-        {content}
+    <div style="
+        background: linear-gradient(90deg, #22c55e20 0%, transparent 100%);
+        border-left: 4px solid #22c55e;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+        animation: slideIn 0.5s ease-out;
+    ">
+        <p style="margin: 0; color: #166534; font-weight: 600;">
+            {icon} {message}
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-
-def render_linkedin_helper():
-    """Render the LinkedIn profile helper section - FIXED: Removed blank button"""
-    st.markdown('<div class="linkedin-section">', unsafe_allow_html=True)
-    
-    with st.popover("ℹ️ How to use LinkedIn URL", use_container_width=False):
-        st.markdown("""
-        **Step-by-step Guide:**
-        
-        1. **Paste LinkedIn URL** - The URL is automatically detected
-        2. **Click 'Save to PDF'** - Opens the exact profile page  
-        3. **On LinkedIn page** - Click **More → Save to PDF**
-        4. **Upload PDF** - Upload the downloaded PDF file
-        
-        💡 **Tip:** This method provides the most accurate analysis!
-        """)
-    
-    # FIXED: Single column layout to avoid blank button issue
-    profile_url = st.text_input(
-        "LinkedIn Profile URL", 
-        placeholder="https://linkedin.com/in/candidate-name",
-        help="Paste the candidate's LinkedIn profile URL here"
-    )
-    
-    # Only show link button if URL is provided
-    if profile_url.strip():
-        st.link_button("📱 Open LinkedIn Profile", profile_url.strip(), use_container_width=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    return profile_url
-
-
-def render_copy_paste_guide():
-    """Render the manual copy-paste guide"""
-    with st.popover("📋 Manual Copy-Paste Guide", use_container_width=False):
-        st.markdown("""
-        **Essential LinkedIn Sections to Copy:**
-        
-        ✅ **Name & Professional Headline**  
-        ✅ **About Section** (complete summary)  
-        ✅ **Experience** (all positions with descriptions)  
-        ✅ **Skills & Endorsements**  
-        ✅ **Education** (degrees, institutions, dates)  
-        ✅ **Certifications & Licenses**  
-        
-        **Pro Tips:**
-        - Copy each section completely for better analysis
-        - Include job descriptions and achievements
-        - Don't forget skills and endorsements
-        """)
-
-
-def render_app_footer():
-    """Render the application footer - FIXED: Removed "Built with love" message"""
-    st.markdown("""
-    <div style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem; border-top: 2px solid #000000; margin-top: 2rem;">
-        <p>© 2025 ResumeAlign - AI-Powered Resume Analysis Platform</p>
+def render_warning_message(message, icon="⚠️"):
+    """Render a custom warning message"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #f59e0b20 0%, transparent 100%);
+        border-left: 4px solid #f59e0b;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+        animation: slideIn 0.5s ease-out;
+    ">
+        <p style="margin: 0; color: #92400e; font-weight: 600;">
+            {icon} {message}
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
+def render_error_message(message, icon="❌"):
+    """Render a custom error message"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #ef444420 0%, transparent 100%);
+        border-left: 4px solid #ef4444;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+        animation: slideIn 0.5s ease-out;
+    ">
+        <p style="margin: 0; color: #991b1b; font-weight: 600;">
+            {icon} {message}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-def clear_session():
-    """Clear all session state data"""
-    keys_to_clear = ["last_report", "linkedin_url", "batch_reports", "batch_job_desc"]
-    for key in keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
+def render_info_message(message, icon="ℹ️"):
+    """Render a custom info message"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #3b82f620 0%, transparent 100%);
+        border-left: 4px solid #3b82f6;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+        animation: slideIn 0.5s ease-out;
+    ">
+        <p style="margin: 0; color: #1e40af; font-weight: 600;">
+            {icon} {message}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def get_timestamp():
+    """Get formatted timestamp for display"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
