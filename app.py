@@ -11,7 +11,7 @@ import json
 from ai_analysis import analyze_single_candidate, analyze_batch_candidates
 from file_utils import extract_text_from_file, save_uploaded_file
 from name_extraction import extract_name_from_text, extract_name_from_filename
-from pdf_generator import generate_comparison_pdf
+from pdf_generator import generate_comparison_pdf, generate_single_candidate_pdf, generate_batch_zip_reports
 from ui_components import (
     apply_custom_css, render_header, render_sidebar, render_compact_file_info,
     render_persistent_error, render_persistent_success, render_file_limit_warning
@@ -21,8 +21,8 @@ from ui_components import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Constants for free tier
-FREE_TIER_BATCH_LIMIT = 5
+# Constants
+BATCH_LIMIT = 5
 MAX_FILE_SIZE_MB = 10
 
 def initialize_session_state():
@@ -79,9 +79,9 @@ def validate_uploaded_files(uploaded_files, is_batch=False):
     valid_files = []
     errors = []
     
-    # Check batch limit for free tier
-    if is_batch and len(files) > FREE_TIER_BATCH_LIMIT:
-        errors.append(f"Free tier limited to {FREE_TIER_BATCH_LIMIT} files per batch. You uploaded {len(files)} files.")
+    # Check batch limit
+    if is_batch and len(files) > BATCH_LIMIT:
+        errors.append(f"Maximum {BATCH_LIMIT} files per batch. You uploaded {len(files)} files.")
         return [], errors
     
     for file in files:
@@ -113,8 +113,69 @@ def generate_candidate_hash(text_content, filename):
     content_str = f"{filename}_{text_content[:500]}"
     return hashlib.md5(content_str.encode()).hexdigest()
 
+def create_excel_report(results):
+    """Create Excel report with error handling"""
+    try:
+        data = []
+        for result in results:
+            # Include interview questions in Excel
+            interview_questions = result.get('interview_questions', [])
+            questions_text = '\n'.join([f"{i+1}. {q}" for i, q in enumerate(interview_questions)])
+            
+            data.append({
+                'Candidate Name': result.get('candidate_name', 'Unknown'),
+                'Overall Score': result.get('overall_score', 0),
+                'Skills Score': result.get('skills_score', 0),
+                'Experience Score': result.get('experience_score', 0),
+                'Education Score': result.get('education_score', 0),
+                'Skills Analysis': result.get('skills_analysis', ''),
+                'Experience Analysis': result.get('experience_analysis', ''),
+                'Education Analysis': result.get('education_analysis', ''),
+                'Fit Assessment': result.get('fit_assessment', ''),
+                'Recommendations': result.get('recommendations', ''),
+                'Strengths': '; '.join(result.get('strengths', [])),
+                'Areas for Improvement': '; '.join(result.get('weaknesses', [])),
+                'Interview Questions': questions_text
+            })
+        
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Analysis Results', index=False)
+            worksheet = writer.sheets['Analysis Results']
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        return output.getvalue()
+    except Exception as e:
+        logger.error(f"Excel generation error: {str(e)}")
+        return None
+
+def create_json_report(results):
+    """Create JSON report"""
+    try:
+        report_data = {
+            'generated_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_candidates': len(results),
+            'candidates': results
+        }
+        return json.dumps(report_data, indent=2)
+    except Exception as e:
+        logger.error(f"JSON generation error: {str(e)}")
+        return None
+
 def display_analysis_results(results, job_description):
-    """Display analysis results with improved formatting"""
+    """Display analysis results with improved formatting and fixed button IDs"""
     if not results:
         st.warning("No analysis results to display.")
         return
@@ -213,6 +274,13 @@ def display_analysis_results(results, job_description):
                         for weakness in weaknesses:
                             st.write(f"• {weakness}")
                     
+                    # Interview Questions - NEW SECTION
+                    interview_questions = result.get('interview_questions', [])
+                    if interview_questions:
+                        st.markdown("**❓ Interview Questions:**")
+                        for j, question in enumerate(interview_questions, 1):
+                            st.write(f"{j}. {question}")
+                    
                     # Recommendations
                     recommendations = result.get('recommendations', '')
                     if recommendations and recommendations != 'Please try the analysis again':
@@ -222,10 +290,50 @@ def display_analysis_results(results, job_description):
     with tab3:
         st.subheader("📄 Export Results")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📊 Generate Excel Report", use_container_width=True):
+            # PDF Download - Using unique keys to avoid duplicate ID errors
+            pdf_button_key = f"pdf_btn_{len(results)}_{datetime.now().microsecond}"
+            if st.button("📑 Download PDF", key=pdf_button_key, use_container_width=True):
+                try:
+                    with st.spinner("Generating PDF/ZIP..."):
+                        if len(results) == 1:
+                            # Single candidate PDF
+                            pdf_data = generate_single_candidate_pdf(results[0], job_description)
+                            if pdf_data:
+                                candidate_name = results[0].get('candidate_name', 'Unknown')
+                                safe_name = "".join(c for c in candidate_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+                                
+                                st.download_button(
+                                    label="⬇️ Download PDF Report",
+                                    data=pdf_data,
+                                    file_name=f"Resume_Analysis_{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                    mime="application/pdf",
+                                    key=f"pdf_download_{datetime.now().microsecond}",
+                                    use_container_width=True
+                                )
+                                render_persistent_success("PDF report ready for download!")
+                        else:
+                            # Multiple candidates ZIP
+                            zip_data = generate_batch_zip_reports(results, job_description)
+                            if zip_data:
+                                st.download_button(
+                                    label="⬇️ Download ZIP Reports",
+                                    data=zip_data,
+                                    file_name=f"Resume_Analysis_Batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                    mime="application/zip",
+                                    key=f"zip_download_{datetime.now().microsecond}",
+                                    use_container_width=True
+                                )
+                                render_persistent_success("ZIP file with individual reports ready for download!")
+                except Exception as e:
+                    render_persistent_error(f"Failed to generate PDF: {str(e)}")
+        
+        with col2:
+            # Excel Download
+            excel_button_key = f"excel_btn_{len(results)}_{datetime.now().microsecond}"
+            if st.button("📊 Download Excel", key=excel_button_key, use_container_width=True):
                 try:
                     excel_data = create_excel_report(results)
                     if excel_data:
@@ -234,76 +342,36 @@ def display_analysis_results(results, job_description):
                             data=excel_data,
                             file_name=f"resume_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"excel_download_{datetime.now().microsecond}",
                             use_container_width=True
                         )
                         render_persistent_success("Excel report ready for download!")
                 except Exception as e:
                     render_persistent_error(f"Failed to generate Excel report: {str(e)}")
         
-        with col2:
-            if st.button("📑 Generate PDF Report", use_container_width=True):
+        with col3:
+            # JSON Download
+            json_button_key = f"json_btn_{len(results)}_{datetime.now().microsecond}"
+            if st.button("📋 Download JSON", key=json_button_key, use_container_width=True):
                 try:
-                    with st.spinner("Generating PDF..."):
-                        pdf_data = generate_comparison_pdf(results, job_description)
-                        if pdf_data:
-                            st.download_button(
-                                label="⬇️ Download PDF Report", 
-                                data=pdf_data,
-                                file_name=f"resume_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                            render_persistent_success("PDF report ready for download!")
+                    json_data = create_json_report(results)
+                    if json_data:
+                        st.download_button(
+                            label="⬇️ Download JSON Report",
+                            data=json_data,
+                            file_name=f"resume_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            mime="application/json",
+                            key=f"json_download_{datetime.now().microsecond}",
+                            use_container_width=True
+                        )
+                        render_persistent_success("JSON report ready for download!")
                 except Exception as e:
-                    render_persistent_error(f"Failed to generate PDF report: {str(e)}")
-
-def create_excel_report(results):
-    """Create Excel report with error handling"""
-    try:
-        data = []
-        for result in results:
-            data.append({
-                'Candidate Name': result.get('candidate_name', 'Unknown'),
-                'Overall Score': result.get('overall_score', 0),
-                'Skills Score': result.get('skills_score', 0),
-                'Experience Score': result.get('experience_score', 0),
-                'Education Score': result.get('education_score', 0),
-                'Skills Analysis': result.get('skills_analysis', ''),
-                'Experience Analysis': result.get('experience_analysis', ''),
-                'Education Analysis': result.get('education_analysis', ''),
-                'Fit Assessment': result.get('fit_assessment', ''),
-                'Recommendations': result.get('recommendations', ''),
-                'Strengths': '; '.join(result.get('strengths', [])),
-                'Areas for Improvement': '; '.join(result.get('weaknesses', []))
-            })
-        
-        df = pd.DataFrame(data)
-        output = io.BytesIO()
-        
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Analysis Results', index=False)
-            worksheet = writer.sheets['Analysis Results']
-            for column in worksheet.columns:
-                max_length = 0
-                column_letter = column[0].column_letter
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = min(max_length + 2, 50)
-                worksheet.column_dimensions[column_letter].width = adjusted_width
-        
-        return output.getvalue()
-    except Exception as e:
-        logger.error(f"Excel generation error: {str(e)}")
-        return None
+                    render_persistent_error(f"Failed to generate JSON report: {str(e)}")
 
 def main():
     # Configure page
     st.set_page_config(
-        page_title="ResumeAlign - AI Resume Analysis (Free)",
+        page_title="ResumeAlign - AI Resume Analysis",
         page_icon="🎯",
         layout="wide",
         initial_sidebar_state="expanded"
@@ -327,12 +395,9 @@ def main():
                     use_container_width=True,
                     help="Clear all data and start fresh"):
             clear_session()
-        
-        if st.session_state.analysis_results:
-            st.info(f"📊 {len(st.session_state.analysis_results)} candidates analyzed this session")
     
     # Main content
-    st.markdown("## 🎯 Smart Resume Analysis (Free Tier)")
+    st.markdown("## 🎯 Smart Resume Analysis")
     
     # Job description input
     with st.container():
@@ -355,7 +420,7 @@ def main():
             st.session_state.job_description = job_desc
     
     # Analysis tabs
-    tab1, tab2 = st.tabs(["📄 Single Resume Analysis", "📁 Batch Analysis (Max 5 files)"])
+    tab1, tab2 = st.tabs(["📄 Single Resume Analysis", f"📁 Batch Analysis (Max {BATCH_LIMIT} files)"])
     
     with tab1:
         st.markdown("### 📄 Single Resume Analysis")
@@ -384,14 +449,16 @@ def main():
                 
                 col1, col2 = st.columns([3, 1])
                 with col2:
+                    analyze_button_key = f"analyze_single_{datetime.now().microsecond}"
                     analyze_button = st.button(
                         "🔍 Analyze Resume",
+                        key=analyze_button_key,
                         use_container_width=True,
                         type="primary"
                     )
                 
                 if analyze_button:
-                    with st.spinner("🔄 Analyzing with FREE Gemini model..."):
+                    with st.spinner("🔄 Analyzing with Gemini 2.5 Flash..."):
                         try:
                             # Extract text
                             file_text = extract_text_from_file(uploaded_file)
@@ -419,7 +486,7 @@ def main():
                                 
                                 if result and result.get('overall_score', 0) >= 0:
                                     result['timestamp'] = datetime.now()
-                                    st.session_state.analysis_results.append(result)
+                                    st.session_state.analysis_results = [result]  # Replace for single analysis
                                     
                                     render_persistent_success("Analysis completed successfully!")
                                     display_analysis_results([result], st.session_state.job_description)
@@ -446,11 +513,11 @@ def main():
             batch_files_key = f"batch_files_{st.session_state.clear_trigger}"
         
         uploaded_files = st.file_uploader(
-            f"Choose up to {FREE_TIER_BATCH_LIMIT} resume files (PDF, DOCX, TXT)",
+            f"Choose up to {BATCH_LIMIT} resume files (PDF, DOCX, TXT)",
             type=['pdf', 'docx', 'txt'],
             accept_multiple_files=True,
             key=batch_files_key,
-            help=f"Free tier: Maximum {FREE_TIER_BATCH_LIMIT} files per batch"
+            help=f"Maximum {BATCH_LIMIT} files per batch"
         )
         
         if uploaded_files and st.session_state.job_description.strip():
@@ -466,8 +533,10 @@ def main():
                 
                 col1, col2 = st.columns([3, 1])
                 with col2:
+                    batch_button_key = f"analyze_batch_{datetime.now().microsecond}"
                     analyze_batch_button = st.button(
                         "🔍 Analyze All",
+                        key=batch_button_key,
                         use_container_width=True,
                         type="primary"
                     )
@@ -514,14 +583,14 @@ def main():
                                 logger.error(f"Error processing {file.name}: {str(e)}")
                                 status_text.error(f"❌ Error with {file.name}")
                             
-                            # Rate limiting for free tier
+                            # Rate limiting for API
                             if i < total_files - 1:
-                                time.sleep(2)
+                                time.sleep(3)
                         
                         progress_bar.progress(1.0)
                         
                         if batch_results:
-                            st.session_state.analysis_results.extend(batch_results)
+                            st.session_state.analysis_results = batch_results  # Replace for batch analysis
                             status_text.success(f"✅ Analyzed {len(batch_results)} out of {total_files} resumes!")
                             display_analysis_results(batch_results, st.session_state.job_description)
                         else:
@@ -541,10 +610,10 @@ def main():
         elif not uploaded_files and st.session_state.job_description.strip():
             st.info("👆 Upload resume files to begin batch analysis.")
     
-    # Display previous results
+    # Display previous results if any
     if st.session_state.analysis_results:
         st.markdown("---")
-        st.markdown("## 📊 Session Results")
+        st.markdown("## 📊 Current Session Results")
         st.markdown(f"Results from your current session ({len(st.session_state.analysis_results)} candidates)")
         display_analysis_results(st.session_state.analysis_results, st.session_state.job_description)
 
