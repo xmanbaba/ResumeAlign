@@ -140,4 +140,4 @@ def extract_candidate_name_from_summary(summary):
             if all(word[0].isupper() for word in name_words if word):
                 return potential_name
     
-    return None
+    return None, f"Analysis error: {str(e)}
