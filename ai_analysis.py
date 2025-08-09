@@ -303,7 +303,7 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
     try:
         # Use Gemini 2.5 Flash model
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash-exp",  # Updated to use Gemini 2.5 Flash
+            model_name="gemini-2.5-flash",  # Corrected model name for Gemini 2.5 Flash
             generation_config={
                 "temperature": 0.1,  # Lower temperature for more consistent results
                 "top_p": 0.8,
