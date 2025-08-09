@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 
 def apply_custom_css():
-    """Apply custom CSS styling with correct branding colors"""
+    """Apply custom CSS styling with COMPACT file upload area"""
     st.markdown("""
     <style>
     /* Main app styling */
@@ -14,13 +14,13 @@ def apply_custom_css():
     /* Header styling with correct branding colors */
     .header-container {
         background: white;
-        padding: 1.5rem 2rem;
+        padding: 1rem 2rem;
         border-radius: 10px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         border: 1px solid #e2e8f0;
     }
     
@@ -31,8 +31,8 @@ def apply_custom_css():
     }
     
     .logo-placeholder {
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
         background: #E53E3E;
         border-radius: 8px;
         display: flex;
@@ -40,20 +40,20 @@ def apply_custom_css():
         justify-content: center;
         color: white;
         font-weight: bold;
-        font-size: 24px;
+        font-size: 18px;
     }
     
     .header-title {
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: 700;
         margin: 0;
-        color: black !important;  /* Black text as requested */
+        color: black !important;
     }
     
     .header-subtitle {
-        font-size: 1rem;
-        margin: 0.3rem 0 0 0;
-        color: #E53E3E !important;  /* Red subtitle as requested */
+        font-size: 0.9rem;
+        margin: 0.2rem 0 0 0;
+        color: #E53E3E !important;
         font-weight: 500;
     }
     
@@ -71,23 +71,17 @@ def apply_custom_css():
     
     .stButton > button:hover {
         background: #C53030 !important;
-        transform: translateY(-2px);
+        transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(229, 62, 62, 0.3);
     }
     
-    /* Primary button (Analyze buttons) */
-    .stButton[data-testid="baseButton-primary"] > button {
-        background: #E53E3E !important;
-        border: 2px solid #E53E3E;
-    }
-    
-    /* File uploader styling - make it much taller */
+    /* COMPACT file uploader - REDUCED HEIGHT by 75% as requested */
     .stFileUploader > div > div {
         background-color: #f8fafc;
         border: 2px dashed #cbd5e0;
-        border-radius: 10px;
-        padding: 4rem 2rem !important;  /* Tripled the height as requested */
-        min-height: 200px !important;  /* Minimum height to ensure good drag area */
+        border-radius: 8px;
+        padding: 1rem !important;  /* Much smaller padding */
+        min-height: 60px !important;  /* Reduced from 200px to 60px */
         text-align: center;
         transition: all 0.3s ease;
         display: flex;
@@ -101,13 +95,32 @@ def apply_custom_css():
         background-color: #fef2f2;
     }
     
-    /* Upload area text */
+    /* Make upload text smaller to fit compact area */
     .stFileUploader > div > div > div {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
+        font-size: 0.9rem;
+    }
+    
+    /* Alternative compact upload style */
+    .compact-upload {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 0.8rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin: 0.5rem 0;
+    }
+    
+    .compact-upload:hover {
+        background: #fef2f2;
+        border-color: #E53E3E;
+    }
+    
+    .compact-upload-text {
+        color: #4a5568;
+        font-size: 0.9rem;
+        margin: 0;
     }
     
     /* Text area improvements */
@@ -131,7 +144,7 @@ def apply_custom_css():
     }
     
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
+        height: 45px;
         border-radius: 8px;
         padding-left: 20px;
         padding-right: 20px;
@@ -152,39 +165,49 @@ def apply_custom_css():
         background: #E53E3E !important;
     }
     
-    /* Alert styling */
+    /* Alert styling - PERSISTENT ERRORS */
     .stAlert {
-        border-radius: 10px;
+        border-radius: 8px;
         border: none;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin: 1rem 0 !important;
     }
     
-    /* Success message styling */
-    .stSuccess {
-        background-color: #f0fff4 !important;
-        border-left: 4px solid #22c55e !important;
-        color: #166534 !important;
-    }
-    
-    /* Error message styling */
+    /* Make error messages more prominent and persistent */
     .stError {
         background-color: #fef2f2 !important;
         border-left: 4px solid #ef4444 !important;
         color: #991b1b !important;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        font-weight: 600;
     }
     
-    /* Warning message styling */
+    .stSuccess {
+        background-color: #f0fff4 !important;
+        border-left: 4px solid #22c55e !important;
+        color: #166534 !important;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        font-weight: 600;
+    }
+    
     .stWarning {
         background-color: #fffbf0 !important;
         border-left: 4px solid #f59e0b !important;
         color: #92400e !important;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        font-weight: 600;
     }
     
-    /* Info message styling */
     .stInfo {
         background-color: #eff6ff !important;
         border-left: 4px solid #3b82f6 !important;
         color: #1e40af !important;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        font-weight: 600;
     }
     
     /* Sidebar improvements */
@@ -202,30 +225,21 @@ def apply_custom_css():
         background: #b91c1c !important;
     }
     
-    /* Expander styling with brand colors */
+    /* Expander styling */
     .streamlit-expanderHeader {
         background-color: #f8fafc;
-        border-radius: 8px;
+        border-radius: 6px;
         font-weight: 600;
-        border-left: 4px solid #E53E3E;
+        border-left: 3px solid #E53E3E;
+        padding: 0.5rem 1rem;
     }
     
-    /* Metric container styling */
-    .metric-container {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #E53E3E;
-        margin: 0.5rem 0;
-    }
-    
-    /* Score display styling with brand colors */
+    /* Score display styling */
     .score-high { 
         color: white; 
         background: #22c55e;
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 4px 12px;
+        border-radius: 15px;
         font-weight: bold;
         font-size: 0.9em;
     }
@@ -233,8 +247,8 @@ def apply_custom_css():
     .score-medium { 
         color: white; 
         background: #f59e0b;
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 4px 12px;
+        border-radius: 15px;
         font-weight: bold;
         font-size: 0.9em;
     }
@@ -242,20 +256,31 @@ def apply_custom_css():
     .score-low { 
         color: white; 
         background: #ef4444;
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 4px 12px;
+        border-radius: 15px;
         font-weight: bold;
         font-size: 0.9em;
     }
     
-    /* LinkedIn blue for future LinkedIn features */
-    .linkedin-blue {
-        color: #0077b5;
+    /* File info styling */
+    .file-info {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+        color: #4a5568;
     }
     
-    /* Navy blue for secondary text */
-    .navy-text {
-        color: #2D3748;
+    /* Compact metric containers */
+    .metric-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        border-left: 4px solid #E53E3E;
+        margin: 0.5rem 0;
     }
     
     /* Hide Streamlit branding */
@@ -266,15 +291,16 @@ def apply_custom_css():
     /* Responsive design */
     @media (max-width: 768px) {
         .header-title {
-            font-size: 2rem;
+            font-size: 1.8rem;
         }
         
         .header-subtitle {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         
         .stFileUploader > div > div {
-            padding: 3rem 1rem !important;
+            padding: 0.8rem !important;
+            min-height: 50px !important;
         }
     }
     
@@ -282,7 +308,7 @@ def apply_custom_css():
     @keyframes slideIn {
         from { 
             opacity: 0; 
-            transform: translateY(20px); 
+            transform: translateY(10px); 
         }
         to { 
             opacity: 1; 
@@ -291,9 +317,10 @@ def apply_custom_css():
     }
     
     .slide-in {
-        animation: slideIn 0.5s ease-out;
+        animation: slideIn 0.3s ease-out;
     }
     
+    /* Spinner for loading states */
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
@@ -330,7 +357,7 @@ def render_sidebar():
         **ResumeAlign** helps you find the perfect candidates by:
         
         ✅ **Smart Analysis** - AI-powered resume evaluation  
-        ✅ **Batch Processing** - Analyze multiple resumes at once  
+        ✅ **Batch Processing** - Analyze up to 5 resumes at once (Free tier)
         ✅ **Detailed Scoring** - Skills, experience, and education breakdown  
         ✅ **Export Options** - PDF and Excel reports  
         ✅ **Consistent Results** - Reliable scoring across analyses  
@@ -354,35 +381,112 @@ def render_sidebar():
                          top_candidate.get('candidate_name', 'Unknown'),
                          f"{top_candidate.get('overall_score', 0)}%")
     
-    # Usage tips - expanded as requested
+    # Usage tips - comprehensive
     with st.expander("💡 Usage Tips"):
         st.markdown("""
         **For Best Results:**
         
-        1️⃣ **Detailed Job Description** - Include specific skills, experience levels, and requirements. The more specific, the better the matching.
+        1️⃣ **Detailed Job Description** - Include specific skills, experience levels, and requirements. More detail = better matching.
         
         2️⃣ **Clear Resume Format** - PDF and DOCX files work best. Ensure text is selectable, not scanned images.
         
-        3️⃣ **Batch Analysis** - Use batch mode for consistent scoring when analyzing multiple candidates for the same position.
+        3️⃣ **Free Tier Limits** - Maximum 5 resumes per batch analysis. Plan accordingly.
         
-        4️⃣ **Review Detailed Analysis** - Check the expanded reports for insights beyond just scores.
+        4️⃣ **File Upload** - Use the compact upload area. Click or drag files directly.
         
-        5️⃣ **File Upload Tips** - Drag files directly to the upload area. If it doesn't work the first time, try again or click to browse.
+        5️⃣ **Review Detailed Analysis** - Check expanded reports for insights beyond scores.
         
-        6️⃣ **Clear Session** - Use the Clear Session button to start fresh when analyzing for a different position.
+        6️⃣ **Clear Session** - Use Clear Session button between different job analyses.
         
-        7️⃣ **Export Results** - Generate PDF or Excel reports for sharing with your team.
+        7️⃣ **Export Results** - Generate PDF/Excel reports for team sharing.
         
-        **Supported File Types:** PDF, DOCX, TXT
-        **Maximum File Size:** 10MB per file
-        **Best Practices:** Use clear, professional resume formats with standard headings.
+        **Supported Files:** PDF, DOCX, TXT (max 10MB each)  
+        **Rate Limits:** Free Gemini account with usage restrictions  
+        **Best Practices:** Quality over quantity - detailed JD gets better results
         """)
     
     st.markdown("---")
-    st.markdown("*Powered by Google Gemini AI*")
+    st.markdown("*Powered by Google Gemini (Free Tier)*")
+
+def render_compact_file_info(uploaded_files):
+    """Render compact file information"""
+    if not uploaded_files:
+        return
+        
+    # Handle both single file and multiple files
+    files = uploaded_files if isinstance(uploaded_files, list) else [uploaded_files]
+    
+    for i, file in enumerate(files, 1):
+        file_size = getattr(file, 'size', 0)
+        if file_size > 0:
+            if file_size < 1024:
+                size_str = f"{file_size} bytes"
+            elif file_size < 1024 * 1024:
+                size_str = f"{file_size / 1024:.1f} KB"
+            else:
+                size_str = f"{file_size / (1024 * 1024):.1f} MB"
+        else:
+            size_str = "Unknown size"
+        
+        st.markdown(f"""
+        <div class="file-info">
+            📄 {i}. {file.name} ({size_str})
+        </div>
+        """, unsafe_allow_html=True)
+
+def render_persistent_error(message, key=None):
+    """Render persistent error message that doesn't disappear"""
+    if key and key not in st.session_state:
+        st.session_state[key] = message
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #ef444420 0%, transparent 100%);
+        border-left: 4px solid #ef4444;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        color: #991b1b;
+        font-weight: 600;
+    ">
+        ❌ {message}
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_persistent_success(message):
+    """Render persistent success message"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #22c55e20 0%, transparent 100%);
+        border-left: 4px solid #22c55e;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        color: #166534;
+        font-weight: 600;
+    ">
+        ✅ {message}
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_file_limit_warning():
+    """Render warning about file limits for free tier"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, #f59e0b20 0%, transparent 100%);
+        border-left: 4px solid #f59e0b;
+        padding: 0.8rem;
+        border-radius: 5px;
+        margin: 0.5rem 0;
+        color: #92400e;
+        font-size: 0.9rem;
+    ">
+        ⚠️ <strong>Free Account:</strong> Maximum 5 files per batch analysis
+    </div>
+    """, unsafe_allow_html=True)
 
 def render_analysis_card(result, rank=None):
-    """Render a single analysis result card with improved styling"""
+    """Render a single analysis result card"""
     name = result.get('candidate_name', 'Unknown Candidate')
     overall_score = result.get('overall_score', 0)
     skills_score = result.get('skills_score', 0)
@@ -431,62 +535,11 @@ def render_analysis_card(result, rank=None):
     st.markdown(card_html, unsafe_allow_html=True)
 
 def render_loading_spinner(text="Processing..."):
-    """Render a custom loading spinner with brand colors"""
+    """Render loading spinner with brand colors"""
     st.markdown(f"""
     <div style="text-align: center; padding: 20px;">
         <div class="spinner" style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #E53E3E;"></div>
         <p style="margin-top: 15px; color: #E53E3E; font-weight: 500;">{text}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_success_message(message, icon="✅"):
-    """Render a custom success message"""
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(90deg, #22c55e20 0%, transparent 100%);
-        border-left: 4px solid #22c55e;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        animation: slideIn 0.5s ease-out;
-    ">
-        <p style="margin: 0; color: #166534; font-weight: 600;">
-            {icon} {message}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_warning_message(message, icon="⚠️"):
-    """Render a custom warning message"""
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(90deg, #f59e0b20 0%, transparent 100%);
-        border-left: 4px solid #f59e0b;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        animation: slideIn 0.5s ease-out;
-    ">
-        <p style="margin: 0; color: #92400e; font-weight: 600;">
-            {icon} {message}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_error_message(message, icon="❌"):
-    """Render a custom error message"""
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(90deg, #ef444420 0%, transparent 100%);
-        border-left: 4px solid #ef4444;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        animation: slideIn 0.5s ease-out;
-    ">
-        <p style="margin: 0; color: #991b1b; font-weight: 600;">
-            {icon} {message}
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
