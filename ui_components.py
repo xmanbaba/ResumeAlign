@@ -53,22 +53,6 @@ def apply_custom_css():
         background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
     }
     
-    /* Clear session button special styling */
-    .clear-button button {
-        background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%) !important;
-        color: white !important;
-        border: 2px solid #2d3748 !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .clear-button button:hover {
-        background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
-    }
-    
     /* File uploader styling */
     .stFileUploader > div > div {
         background-color: #f8fafc;
@@ -168,9 +152,20 @@ def apply_custom_css():
     }
     
     /* Score display styling */
-    .score-high { color: #2d5a27; background: #c6f6d5; }
-    .score-medium { color: #744210; background: #fef5e7; }
-    .score-low { color: #742a2a; background: #fed7d7; }
+    .score-high { 
+        color: #2d5a27; 
+        background: #c6f6d5; 
+    }
+    
+    .score-medium { 
+        color: #744210; 
+        background: #fef5e7; 
+    }
+    
+    .score-low { 
+        color: #742a2a; 
+        background: #fed7d7; 
+    }
     
     /* Responsive design */
     @media (max-width: 768px) {
@@ -189,18 +184,41 @@ def apply_custom_css():
     }
     
     /* Hide Streamlit style */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
+    #MainMenu {
+        visibility: hidden;
+    }
+    
+    footer {
+        visibility: hidden;
+    }
+    
+    .stDeployButton {
+        display: none;
+    }
     
     /* Custom animations */
     @keyframes slideIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { 
+            opacity: 0; 
+            transform: translateY(20px); 
+        }
+        to { 
+            opacity: 1; 
+            transform: translateY(0); 
+        }
     }
     
     .slide-in {
         animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes spin {
+        from { 
+            transform: rotate(0deg); 
+        }
+        to { 
+            transform: rotate(360deg); 
+        }
     }
     
     /* Improved spacing */
@@ -326,13 +344,6 @@ def render_loading_spinner(text="Processing..."):
         <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #667eea; animation: spin 1s linear infinite;"></div>
         <p style="margin-top: 15px; color: #667eea; font-weight: 500;">{text}</p>
     </div>
-    
-    <style>
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    </style>
     """, unsafe_allow_html=True)
 
 def render_score_gauge(score, label):
@@ -345,14 +356,19 @@ def render_score_gauge(score, label):
     else:
         color = "#ef4444"  # Red
     
+    # Calculate the circumference and dash offset
+    radius = 54
+    circumference = 2 * 3.14159 * radius
+    dash_offset = circumference * (1 - score/100)
+    
     gauge_html = f"""
     <div style="text-align: center; margin: 10px;">
         <div style="position: relative; width: 120px; height: 120px; margin: 0 auto;">
             <svg width="120" height="120" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="54" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-                <circle cx="60" cy="60" r="54" fill="none" stroke="{color}" stroke-width="8"
-                        stroke-dasharray="{2 * 3.14159 * 54}" 
-                        stroke-dashoffset="{2 * 3.14159 * 54 * (1 - score/100)}"
+                <circle cx="60" cy="60" r="{radius}" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                <circle cx="60" cy="60" r="{radius}" fill="none" stroke="{color}" stroke-width="8"
+                        stroke-dasharray="{circumference}" 
+                        stroke-dashoffset="{dash_offset}"
                         transform="rotate(-90 60 60)"/>
                 <text x="60" y="65" text-anchor="middle" font-size="18" font-weight="bold" fill="{color}">
                     {score}%
