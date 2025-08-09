@@ -347,7 +347,7 @@ def render_header():
     """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Render enhanced sidebar with navigation and info"""
+    """Render enhanced sidebar with navigation and info - CLEANED UP"""
     st.markdown("### 🎯 ResumeAlign")
     st.markdown("---")
     
@@ -357,31 +357,14 @@ def render_sidebar():
         **ResumeAlign** helps you find the perfect candidates by:
         
         ✅ **Smart Analysis** - AI-powered resume evaluation  
-        ✅ **Batch Processing** - Analyze up to 5 resumes at once (Free tier)
+        ✅ **Batch Processing** - Analyze up to 5 resumes at once
         ✅ **Detailed Scoring** - Skills, experience, and education breakdown  
-        ✅ **Export Options** - PDF and Excel reports  
-        ✅ **Consistent Results** - Reliable scoring across analyses  
+        ✅ **Export Options** - PDF, Excel, and JSON reports  
+        ✅ **Interview Questions** - AI-generated relevant questions
         ✅ **Candidate Ranking** - Automatic ranking by fit score
         """)
     
-    # Quick stats
-    if 'analysis_results' in st.session_state and st.session_state.analysis_results:
-        with st.expander("📊 Current Session Stats"):
-            results = st.session_state.analysis_results
-            total_candidates = len(results)
-            avg_score = sum(r.get('overall_score', 0) for r in results) / total_candidates if total_candidates > 0 else 0
-            
-            st.metric("Candidates Analyzed", total_candidates)
-            st.metric("Average Score", f"{avg_score:.1f}%")
-            
-            # Top candidate
-            if results:
-                top_candidate = max(results, key=lambda x: x.get('overall_score', 0))
-                st.metric("Top Candidate", 
-                         top_candidate.get('candidate_name', 'Unknown'),
-                         f"{top_candidate.get('overall_score', 0)}%")
-    
-    # Usage tips - comprehensive
+    # Usage tips - comprehensive (REMOVED FREE TIER REFERENCES)
     with st.expander("💡 Usage Tips"):
         st.markdown("""
         **For Best Results:**
@@ -390,7 +373,7 @@ def render_sidebar():
         
         2️⃣ **Clear Resume Format** - PDF and DOCX files work best. Ensure text is selectable, not scanned images.
         
-        3️⃣ **Free Tier Limits** - Maximum 5 resumes per batch analysis. Plan accordingly.
+        3️⃣ **Batch Limits** - Maximum 5 resumes per batch analysis. Plan accordingly.
         
         4️⃣ **File Upload** - Use the compact upload area. Click or drag files directly.
         
@@ -398,15 +381,14 @@ def render_sidebar():
         
         6️⃣ **Clear Session** - Use Clear Session button between different job analyses.
         
-        7️⃣ **Export Results** - Generate PDF/Excel reports for team sharing.
+        7️⃣ **Export Results** - Generate PDF/Excel/JSON reports for team sharing.
         
         **Supported Files:** PDF, DOCX, TXT (max 10MB each)  
-        **Rate Limits:** Free Gemini account with usage restrictions  
         **Best Practices:** Quality over quantity - detailed JD gets better results
         """)
     
     st.markdown("---")
-    st.markdown("*Powered by Google Gemini (Free Tier)*")
+    st.markdown("*Powered by Google Gemini 2.5 Flash*")
 
 def render_compact_file_info(uploaded_files):
     """Render compact file information"""
@@ -470,7 +452,7 @@ def render_persistent_success(message):
     """, unsafe_allow_html=True)
 
 def render_file_limit_warning():
-    """Render warning about file limits for free tier"""
+    """Render warning about file limits - REMOVED FREE TIER REFERENCE"""
     st.markdown(f"""
     <div style="
         background: linear-gradient(90deg, #f59e0b20 0%, transparent 100%);
@@ -481,7 +463,7 @@ def render_file_limit_warning():
         color: #92400e;
         font-size: 0.9rem;
     ">
-        ⚠️ <strong>Free Account:</strong> Maximum 5 files per batch analysis
+        ⚠️ <strong>Batch Limit:</strong> Maximum 5 files per batch analysis
     </div>
     """, unsafe_allow_html=True)
 
