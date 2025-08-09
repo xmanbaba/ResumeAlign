@@ -1,357 +1,204 @@
 import streamlit as st
-import io
-import os
-import tempfile
 import logging
-from typing import Optional, BinaryIO
+import tempfile
+import os
+from typing import Optional
 import PyPDF2
-import pdfplumber
-from docx import Document
-import zipfile
+import docx
+import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def extract_text_from_file(uploaded_file) -> Optional[str]:
-    """
-    Extract text from uploaded file with enhanced error handling and multiple extraction methods
-    """
+    """Extract text from uploaded file (PDF, DOCX, TXT) with robust error handling"""
+    
     if not uploaded_file:
-        logger.error("No file provided")
+        logger.error("No file provided for text extraction")
         return None
     
     try:
-        file_extension = uploaded_file.name.lower().split('.')[-1]
-        logger.info(f"Processing file: {uploaded_file.name} (type: {file_extension})")
+        filename = uploaded_file.name.lower()
+        logger.info(f"Extracting text from {filename}")
         
-        if file_extension == 'pdf':
-            return extract_text_from_pdf(uploaded_file)
-        elif file_extension == 'docx':
-            return extract_text_from_docx(uploaded_file)
-        elif file_extension == 'txt':
-            return extract_text_from_txt(uploaded_file)
+        # Get file content
+        file_content = uploaded_file.getvalue()
+        
+        if filename.endswith('.pdf'):
+            return extract_text_from_pdf(file_content, uploaded_file.name)
+        elif filename.endswith('.docx'):
+            return extract_text_from_docx(file_content, uploaded_file.name)
+        elif filename.endswith('.txt'):
+            return extract_text_from_txt(file_content, uploaded_file.name)
         else:
-            logger.error(f"Unsupported file type: {file_extension}")
-            st.error(f"❌ Unsupported file type: {file_extension}. Please use PDF, DOCX, or TXT files.")
+            logger.error(f"Unsupported file format: {filename}")
+            st.error(f"❌ Unsupported file format: {filename}")
             return None
-    
+            
     except Exception as e:
         logger.error(f"Error extracting text from {uploaded_file.name}: {str(e)}")
-        st.error(f"❌ Error processing file {uploaded_file.name}: {str(e)}")
+        st.error(f"❌ Error reading file {uploaded_file.name}: {str(e)}")
         return None
 
-def extract_text_from_pdf(uploaded_file) -> Optional[str]:
-    """Extract text from PDF file using multiple methods for better reliability"""
+def extract_text_from_pdf(file_content: bytes, filename: str) -> Optional[str]:
+    """Extract text from PDF file with multiple extraction methods"""
     try:
-        # Reset file pointer
-        uploaded_file.seek(0)
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
         
-        # Method 1: Try pdfplumber first (better for complex layouts)
-        try:
-            with pdfplumber.open(uploaded_file) as pdf:
-                text_content = []
-                for page_num, page in enumerate(pdf.pages):
-                    try:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text_content.append(page_text)
-                        else:
-                            logger.warning(f"No text found on page {page_num + 1} using pdfplumber")
-                    except Exception as e:
-                        logger.warning(f"Error extracting text from page {page_num + 1} with pdfplumber: {str(e)}")
-                        continue
-                
-                if text_content:
-                    full_text = '\n\n'.join(text_content)
-                    logger.info(f"Successfully extracted {len(full_text)} characters using pdfplumber")
-                    return clean_extracted_text(full_text)
+        if len(pdf_reader.pages) == 0:
+            logger.warning(f"PDF {filename} has no pages")
+            return None
         
-        except Exception as e:
-            logger.warning(f"pdfplumber extraction failed: {str(e)}, trying PyPDF2")
+        text_parts = []
         
-        # Method 2: Fallback to PyPDF2
-        uploaded_file.seek(0)
-        try:
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            text_content = []
-            
-            for page_num, page in enumerate(pdf_reader.pages):
-                try:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_content.append(page_text)
-                    else:
-                        logger.warning(f"No text found on page {page_num + 1} using PyPDF2")
-                except Exception as e:
-                    logger.warning(f"Error extracting text from page {page_num + 1} with PyPDF2: {str(e)}")
-                    continue
-            
-            if text_content:
-                full_text = '\n\n'.join(text_content)
-                logger.info(f"Successfully extracted {len(full_text)} characters using PyPDF2")
-                return clean_extracted_text(full_text)
-        
-        except Exception as e:
-            logger.error(f"PyPDF2 extraction also failed: {str(e)}")
-        
-        # If both methods fail
-        logger.error("Both PDF extraction methods failed")
-        st.error("❌ Could not extract text from PDF. The file might be corrupted, password-protected, or contain only images.")
-        return None
-    
-    except Exception as e:
-        logger.error(f"PDF processing error: {str(e)}")
-        st.error(f"❌ Error processing PDF file: {str(e)}")
-        return None
-
-def extract_text_from_docx(uploaded_file) -> Optional[str]:
-    """Extract text from DOCX file with enhanced error handling"""
-    try:
-        uploaded_file.seek(0)
-        
-        # Create a temporary file to work with python-docx
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            tmp_file.flush()
-            
+        for page_num, page in enumerate(pdf_reader.pages):
             try:
-                # Open the document
-                doc = Document(tmp_file.name)
-                text_content = []
-                
-                # Extract text from paragraphs
-                for paragraph in doc.paragraphs:
-                    if paragraph.text.strip():
-                        text_content.append(paragraph.text)
-                
-                # Extract text from tables
-                for table in doc.tables:
-                    for row in table.rows:
-                        row_text = []
-                        for cell in row.cells:
-                            if cell.text.strip():
-                                row_text.append(cell.text.strip())
-                        if row_text:
-                            text_content.append(' | '.join(row_text))
-                
-                # Extract text from headers/footers if needed
-                for section in doc.sections:
-                    if section.header:
-                        for paragraph in section.header.paragraphs:
-                            if paragraph.text.strip():
-                                text_content.append(paragraph.text)
-                    
-                    if section.footer:
-                        for paragraph in section.footer.paragraphs:
-                            if paragraph.text.strip():
-                                text_content.append(paragraph.text)
-                
-                if text_content:
-                    full_text = '\n\n'.join(text_content)
-                    logger.info(f"Successfully extracted {len(full_text)} characters from DOCX")
-                    return clean_extracted_text(full_text)
+                page_text = page.extract_text()
+                if page_text and page_text.strip():
+                    text_parts.append(page_text.strip())
+                    logger.info(f"Extracted {len(page_text)} chars from page {page_num + 1}")
                 else:
-                    logger.warning("No text content found in DOCX file")
-                    st.warning("⚠️ The DOCX file appears to be empty or contains no readable text.")
-                    return None
-            
-            finally:
-                # Clean up temporary file
-                try:
-                    os.unlink(tmp_file.name)
-                except:
-                    pass
-    
-    except zipfile.BadZipFile:
-        logger.error("Invalid DOCX file format")
-        st.error("❌ Invalid DOCX file format. Please ensure the file is not corrupted.")
-        return None
-    
-    except Exception as e:
-        logger.error(f"DOCX processing error: {str(e)}")
-        st.error(f"❌ Error processing DOCX file: {str(e)}")
-        return None
-
-def extract_text_from_txt(uploaded_file) -> Optional[str]:
-    """Extract text from TXT file with encoding detection"""
-    try:
-        uploaded_file.seek(0)
-        
-        # Try different encodings
-        encodings = ['utf-8', 'utf-16', 'latin-1', 'cp1252', 'ascii']
-        
-        for encoding in encodings:
-            try:
-                uploaded_file.seek(0)
-                content = uploaded_file.read()
-                
-                if isinstance(content, bytes):
-                    text_content = content.decode(encoding)
-                else:
-                    text_content = content
-                
-                if text_content.strip():
-                    logger.info(f"Successfully extracted {len(text_content)} characters from TXT using {encoding}")
-                    return clean_extracted_text(text_content)
-            
-            except (UnicodeDecodeError, UnicodeError):
-                logger.warning(f"Failed to decode TXT file with {encoding}")
+                    logger.warning(f"No text found on page {page_num + 1} of {filename}")
+            except Exception as e:
+                logger.error(f"Error extracting from page {page_num + 1} of {filename}: {str(e)}")
                 continue
         
-        logger.error("Could not decode TXT file with any supported encoding")
-        st.error("❌ Could not read the text file. Please ensure it uses a supported encoding (UTF-8, Latin-1, etc.).")
-        return None
-    
+        if not text_parts:
+            logger.error(f"No text could be extracted from PDF {filename}")
+            st.error(f"❌ Could not extract text from PDF. The file may be password-protected or contain only images.")
+            return None
+        
+        full_text = '\n\n'.join(text_parts)
+        logger.info(f"Successfully extracted {len(full_text)} characters from PDF {filename}")
+        
+        return full_text
+        
     except Exception as e:
-        logger.error(f"TXT processing error: {str(e)}")
-        st.error(f"❌ Error processing TXT file: {str(e)}")
+        logger.error(f"PDF extraction failed for {filename}: {str(e)}")
+        st.error(f"❌ Error reading PDF {filename}: {str(e)}")
         return None
 
-def clean_extracted_text(text: str) -> str:
-    """Clean and normalize extracted text"""
-    if not text:
-        return ""
+def extract_text_from_docx(file_content: bytes, filename: str) -> Optional[str]:
+    """Extract text from DOCX file"""
+    try:
+        doc = docx.Document(io.BytesIO(file_content))
+        
+        text_parts = []
+        
+        # Extract from paragraphs
+        for paragraph in doc.paragraphs:
+            if paragraph.text and paragraph.text.strip():
+                text_parts.append(paragraph.text.strip())
+        
+        # Extract from tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.text and cell.text.strip():
+                        text_parts.append(cell.text.strip())
+        
+        if not text_parts:
+            logger.error(f"No text found in DOCX {filename}")
+            st.error(f"❌ No text content found in {filename}")
+            return None
+        
+        full_text = '\n\n'.join(text_parts)
+        logger.info(f"Successfully extracted {len(full_text)} characters from DOCX {filename}")
+        
+        return full_text
+        
+    except Exception as e:
+        logger.error(f"DOCX extraction failed for {filename}: {str(e)}")
+        st.error(f"❌ Error reading DOCX {filename}: {str(e)}")
+        return None
+
+def extract_text_from_txt(file_content: bytes, filename: str) -> Optional[str]:
+    """Extract text from TXT file with encoding detection"""
     
-    # Remove excessive whitespace and normalize line breaks
-    import re
+    # Common encodings to try
+    encodings = ['utf-8', 'utf-16', 'latin-1', 'cp1252', 'ascii']
     
-    # Replace multiple spaces with single space
-    text = re.sub(r' {2,}', ' ', text)
+    for encoding in encodings:
+        try:
+            text = file_content.decode(encoding)
+            if text and text.strip():
+                logger.info(f"Successfully decoded TXT {filename} with {encoding} encoding")
+                return text.strip()
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            logger.warning(f"Error with {encoding} encoding for {filename}: {str(e)}")
+            continue
     
-    # Replace multiple line breaks with double line breaks
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    logger.error(f"Could not decode TXT file {filename} with any encoding")
+    st.error(f"❌ Could not read text file {filename}. Please check the file encoding.")
+    return None
+
+def save_uploaded_file(uploaded_file) -> Optional[str]:
+    """Save uploaded file temporarily and return path"""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{uploaded_file.name}") as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
+            
+        logger.info(f"Saved {uploaded_file.name} to {tmp_path}")
+        return tmp_path
+        
+    except Exception as e:
+        logger.error(f"Failed to save {uploaded_file.name}: {str(e)}")
+        return None
+
+def cleanup_temp_file(file_path: str):
+    """Clean up temporary file"""
+    try:
+        if file_path and os.path.exists(file_path):
+            os.unlink(file_path)
+            logger.info(f"Cleaned up temporary file: {file_path}")
+    except Exception as e:
+        logger.warning(f"Could not clean up {file_path}: {str(e)}")
+
+def validate_file_content(text: str, filename: str) -> bool:
+    """Validate extracted text content"""
+    if not text or not text.strip():
+        logger.error(f"Empty content from {filename}")
+        return False
     
-    # Remove leading/trailing whitespace from each line
-    lines = [line.strip() for line in text.split('\n')]
-    text = '\n'.join(lines)
-    
-    # Remove excessive empty lines at the beginning and end
-    text = text.strip()
-    
-    # Ensure minimum text length
+    # Check minimum length
     if len(text.strip()) < 50:
-        logger.warning(f"Extracted text is very short ({len(text)} characters)")
+        logger.warning(f"Very short content from {filename} ({len(text)} chars)")
+        st.warning(f"⚠️ {filename} contains very little text ({len(text)} characters). Analysis may be limited.")
     
-    return text
-
-def validate_file_size(uploaded_file, max_size_mb: int = 10) -> bool:
-    """Validate file size"""
-    try:
-        file_size = len(uploaded_file.read())
-        uploaded_file.seek(0)  # Reset file pointer
-        
-        max_size_bytes = max_size_mb * 1024 * 1024
-        
-        if file_size > max_size_bytes:
-            st.error(f"❌ File too large. Maximum size allowed: {max_size_mb}MB. Your file: {file_size / (1024*1024):.1f}MB")
-            return False
-        
-        return True
+    # Check for common issues
+    if text.count('\n') < 3:
+        logger.warning(f"Content from {filename} has very few line breaks - may be formatting issue")
     
-    except Exception as e:
-        logger.error(f"File size validation error: {str(e)}")
-        return True  # Allow processing if validation fails
-
-def save_uploaded_file(uploaded_file, directory: str = None) -> Optional[str]:
-    """Save uploaded file to temporary directory and return path"""
-    try:
-        if directory is None:
-            directory = tempfile.gettempdir()
-        
-        # Ensure directory exists
-        os.makedirs(directory, exist_ok=True)
-        
-        # Create safe filename
-        safe_filename = "".join(c for c in uploaded_file.name if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
-        file_path = os.path.join(directory, safe_filename)
-        
-        # Write file
-        with open(file_path, 'wb') as f:
-            f.write(uploaded_file.read())
-        
-        # Reset file pointer
-        uploaded_file.seek(0)
-        
-        logger.info(f"File saved to: {file_path}")
-        return file_path
-    
-    except Exception as e:
-        logger.error(f"Error saving file: {str(e)}")
-        return None
+    return True
 
 def get_file_info(uploaded_file) -> dict:
-    """Get comprehensive file information"""
+    """Get file information for display"""
     try:
-        file_info = {
-            'name': uploaded_file.name,
-            'size': len(uploaded_file.read()),
-            'type': uploaded_file.type,
-            'extension': uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else ''
-        }
+        file_size = len(uploaded_file.getvalue())
+        file_type = uploaded_file.name.split('.')[-1].upper()
         
-        uploaded_file.seek(0)  # Reset file pointer
-        
-        # Add size in readable format
-        size_bytes = file_info['size']
-        if size_bytes < 1024:
-            file_info['size_readable'] = f"{size_bytes} bytes"
-        elif size_bytes < 1024 * 1024:
-            file_info['size_readable'] = f"{size_bytes / 1024:.1f} KB"
+        if file_size < 1024:
+            size_display = f"{file_size} bytes"
+        elif file_size < 1024 * 1024:
+            size_display = f"{file_size / 1024:.1f} KB"
         else:
-            file_info['size_readable'] = f"{size_bytes / (1024 * 1024):.1f} MB"
+            size_display = f"{file_size / (1024 * 1024):.1f} MB"
         
-        return file_info
-    
+        return {
+            'name': uploaded_file.name,
+            'size': file_size,
+            'size_display': size_display,
+            'type': file_type
+        }
     except Exception as e:
         logger.error(f"Error getting file info: {str(e)}")
         return {
-            'name': getattr(uploaded_file, 'name', 'Unknown'),
+            'name': uploaded_file.name if uploaded_file else 'Unknown',
             'size': 0,
-            'size_readable': 'Unknown',
-            'type': 'Unknown',
-            'extension': ''
+            'size_display': 'Unknown',
+            'type': 'Unknown'
         }
-
-def is_supported_file_type(filename: str) -> bool:
-    """Check if file type is supported"""
-    if not filename:
-        return False
-    
-    supported_extensions = {'pdf', 'docx', 'txt'}
-    file_extension = filename.lower().split('.')[-1] if '.' in filename else ''
-    
-    return file_extension in supported_extensions
-
-def batch_validate_files(uploaded_files) -> tuple:
-    """Validate multiple uploaded files and return valid and invalid files"""
-    valid_files = []
-    invalid_files = []
-    
-    for uploaded_file in uploaded_files:
-        try:
-            # Check file type
-            if not is_supported_file_type(uploaded_file.name):
-                invalid_files.append({
-                    'file': uploaded_file,
-                    'reason': f"Unsupported file type: {uploaded_file.name.split('.')[-1]}"
-                })
-                continue
-            
-            # Check file size
-            if not validate_file_size(uploaded_file, max_size_mb=10):
-                invalid_files.append({
-                    'file': uploaded_file,
-                    'reason': "File too large (>10MB)"
-                })
-                continue
-            
-            valid_files.append(uploaded_file)
-        
-        except Exception as e:
-            invalid_files.append({
-                'file': uploaded_file,
-                'reason': f"Validation error: {str(e)}"
-            })
-    
-    return valid_files, invalid_files
