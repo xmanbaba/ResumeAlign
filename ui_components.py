@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 
 def apply_custom_css():
-    """Apply custom CSS styling to the application"""
+    """Apply custom CSS styling with correct branding colors"""
     st.markdown("""
     <style>
     /* Main app styling */
@@ -11,61 +11,103 @@ def apply_custom_css():
         padding-bottom: 2rem;
     }
     
-    /* Header styling */
+    /* Header styling with correct branding colors */
     .header-container {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem 1rem;
+        background: white;
+        padding: 1.5rem 2rem;
         border-radius: 10px;
         margin-bottom: 2rem;
-        text-align: center;
-        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .logo-placeholder {
+        width: 60px;
+        height: 60px;
+        background: #E53E3E;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 24px;
     }
     
     .header-title {
         font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        color: black !important;  /* Black text as requested */
     }
     
     .header-subtitle {
-        font-size: 1.2rem;
-        margin: 0.5rem 0 0 0;
-        opacity: 0.9;
+        font-size: 1rem;
+        margin: 0.3rem 0 0 0;
+        color: #E53E3E !important;  /* Red subtitle as requested */
+        font-weight: 500;
     }
     
-    /* Button styling improvements */
+    /* Button styling with brand colors */
     .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: #E53E3E !important;
+        color: white !important;
         border: none;
         border-radius: 8px;
-        padding: 0.5rem 1rem;
+        padding: 0.6rem 1.5rem;
         font-weight: 600;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(229, 62, 62, 0.2);
     }
     
     .stButton > button:hover {
+        background: #C53030 !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        box-shadow: 0 4px 8px rgba(229, 62, 62, 0.3);
     }
     
-    /* File uploader styling */
+    /* Primary button (Analyze buttons) */
+    .stButton[data-testid="baseButton-primary"] > button {
+        background: #E53E3E !important;
+        border: 2px solid #E53E3E;
+    }
+    
+    /* File uploader styling - make it much taller */
     .stFileUploader > div > div {
         background-color: #f8fafc;
         border: 2px dashed #cbd5e0;
         border-radius: 10px;
-        padding: 2rem;
+        padding: 4rem 2rem !important;  /* Tripled the height as requested */
+        min-height: 200px !important;  /* Minimum height to ensure good drag area */
         text-align: center;
         transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
     
     .stFileUploader > div > div:hover {
-        border-color: #667eea;
-        background-color: #f0f4ff;
+        border-color: #E53E3E;
+        background-color: #fef2f2;
+    }
+    
+    /* Upload area text */
+    .stFileUploader > div > div > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
     }
     
     /* Text area improvements */
@@ -76,11 +118,11 @@ def apply_custom_css():
     }
     
     .stTextArea > div > div > textarea:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: #E53E3E;
+        box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
     }
     
-    /* Tab styling */
+    /* Tab styling with brand colors */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: #f8fafc;
@@ -100,24 +142,14 @@ def apply_custom_css():
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #E53E3E !important;
         color: white;
         font-weight: 600;
     }
     
-    /* Metric styling */
-    .metric-container {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #667eea;
-        margin: 0.5rem 0;
-    }
-    
-    /* Progress bar styling */
+    /* Progress bar styling with brand color */
     .stProgress .st-bo {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        background: #E53E3E !important;
     }
     
     /* Alert styling */
@@ -127,45 +159,109 @@ def apply_custom_css():
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
+    /* Success message styling */
+    .stSuccess {
+        background-color: #f0fff4 !important;
+        border-left: 4px solid #22c55e !important;
+        color: #166534 !important;
+    }
+    
+    /* Error message styling */
+    .stError {
+        background-color: #fef2f2 !important;
+        border-left: 4px solid #ef4444 !important;
+        color: #991b1b !important;
+    }
+    
+    /* Warning message styling */
+    .stWarning {
+        background-color: #fffbf0 !important;
+        border-left: 4px solid #f59e0b !important;
+        color: #92400e !important;
+    }
+    
+    /* Info message styling */
+    .stInfo {
+        background-color: #eff6ff !important;
+        border-left: 4px solid #3b82f6 !important;
+        color: #1e40af !important;
+    }
+    
     /* Sidebar improvements */
     .sidebar .block-container {
         padding-top: 1rem;
     }
     
-    /* Expander styling */
+    /* Clear Session button styling */
+    .stButton:has(button:contains("Clear Session")) > button {
+        background: #dc2626 !important;
+        color: white !important;
+    }
+    
+    .stButton:has(button:contains("Clear Session")) > button:hover {
+        background: #b91c1c !important;
+    }
+    
+    /* Expander styling with brand colors */
     .streamlit-expanderHeader {
         background-color: #f8fafc;
         border-radius: 8px;
         font-weight: 600;
+        border-left: 4px solid #E53E3E;
     }
     
-    /* Success/Error message styling */
-    .stSuccess, .stError, .stWarning, .stInfo {
-        border-radius: 8px;
-        border: none;
-        font-weight: 500;
+    /* Metric container styling */
+    .metric-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #E53E3E;
+        margin: 0.5rem 0;
     }
     
-    /* Container improvements */
-    .element-container {
-        margin-bottom: 1rem;
-    }
-    
-    /* Score display styling */
+    /* Score display styling with brand colors */
     .score-high { 
-        color: #2d5a27; 
-        background: #c6f6d5; 
+        color: white; 
+        background: #22c55e;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.9em;
     }
     
     .score-medium { 
-        color: #744210; 
-        background: #fef5e7; 
+        color: white; 
+        background: #f59e0b;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.9em;
     }
     
     .score-low { 
-        color: #742a2a; 
-        background: #fed7d7; 
+        color: white; 
+        background: #ef4444;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.9em;
     }
+    
+    /* LinkedIn blue for future LinkedIn features */
+    .linkedin-blue {
+        color: #0077b5;
+    }
+    
+    /* Navy blue for secondary text */
+    .navy-text {
+        color: #2D3748;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    .stDeployButton { display: none; }
     
     /* Responsive design */
     @media (max-width: 768px) {
@@ -174,26 +270,12 @@ def apply_custom_css():
         }
         
         .header-subtitle {
-            font-size: 1rem;
+            font-size: 0.9rem;
         }
         
-        .main .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
+        .stFileUploader > div > div {
+            padding: 3rem 1rem !important;
         }
-    }
-    
-    /* Hide Streamlit style */
-    #MainMenu {
-        visibility: hidden;
-    }
-    
-    footer {
-        visibility: hidden;
-    }
-    
-    .stDeployButton {
-        display: none;
     }
     
     /* Custom animations */
@@ -213,27 +295,27 @@ def apply_custom_css():
     }
     
     @keyframes spin {
-        from { 
-            transform: rotate(0deg); 
-        }
-        to { 
-            transform: rotate(360deg); 
-        }
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
     
-    /* Improved spacing */
-    .block-container > div > div > div > div {
-        margin-bottom: 1rem;
+    .spinner {
+        animation: spin 1s linear infinite;
     }
     </style>
     """, unsafe_allow_html=True)
 
 def render_header():
-    """Render the application header with improved styling"""
+    """Render the application header with correct branding"""
     st.markdown("""
-    <div class="header-container slide-in">
-        <h1 class="header-title">🎯 ResumeAlign</h1>
-        <p class="header-subtitle">AI-Powered Resume Analysis & Candidate Matching</p>
+    <div class="header-container">
+        <div class="logo-container">
+            <div class="logo-placeholder">RA</div>
+            <div>
+                <h1 class="header-title">ResumeAlign</h1>
+                <p class="header-subtitle">AI-Powered Resume Analysis and Candidate Matching</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -252,6 +334,7 @@ def render_sidebar():
         ✅ **Detailed Scoring** - Skills, experience, and education breakdown  
         ✅ **Export Options** - PDF and Excel reports  
         ✅ **Consistent Results** - Reliable scoring across analyses  
+        ✅ **Candidate Ranking** - Automatic ranking by fit score
         """)
     
     # Quick stats
@@ -271,18 +354,28 @@ def render_sidebar():
                          top_candidate.get('candidate_name', 'Unknown'),
                          f"{top_candidate.get('overall_score', 0)}%")
     
-    # Usage tips
+    # Usage tips - expanded as requested
     with st.expander("💡 Usage Tips"):
         st.markdown("""
         **For Best Results:**
         
-        1️⃣ **Detailed Job Description** - Include specific skills, experience levels, and requirements
+        1️⃣ **Detailed Job Description** - Include specific skills, experience levels, and requirements. The more specific, the better the matching.
         
-        2️⃣ **Clear Resume Format** - PDF and DOCX files work best
+        2️⃣ **Clear Resume Format** - PDF and DOCX files work best. Ensure text is selectable, not scanned images.
         
-        3️⃣ **Batch Analysis** - Use batch mode for consistent scoring when analyzing multiple candidates
+        3️⃣ **Batch Analysis** - Use batch mode for consistent scoring when analyzing multiple candidates for the same position.
         
-        4️⃣ **Review Results** - Check the detailed analysis for insights beyond just scores
+        4️⃣ **Review Detailed Analysis** - Check the expanded reports for insights beyond just scores.
+        
+        5️⃣ **File Upload Tips** - Drag files directly to the upload area. If it doesn't work the first time, try again or click to browse.
+        
+        6️⃣ **Clear Session** - Use the Clear Session button to start fresh when analyzing for a different position.
+        
+        7️⃣ **Export Results** - Generate PDF or Excel reports for sharing with your team.
+        
+        **Supported File Types:** PDF, DOCX, TXT
+        **Maximum File Size:** 10MB per file
+        **Best Practices:** Use clear, professional resume formats with standard headings.
         """)
     
     st.markdown("---")
@@ -296,7 +389,7 @@ def render_analysis_card(result, rank=None):
     experience_score = result.get('experience_score', 0)
     education_score = result.get('education_score', 0)
     
-    # Determine score color
+    # Determine score color and emoji
     if overall_score >= 80:
         score_class = "score-high"
         score_emoji = "🌟"
@@ -312,23 +405,23 @@ def render_analysis_card(result, rank=None):
     card_html = f"""
     <div class="metric-container slide-in">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="margin: 0; color: #2d3748;">{score_emoji} {rank_display}{name}</h4>
-            <div class="{score_class}" style="padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+            <h4 style="margin: 0; color: #2D3748;">{score_emoji} {rank_display}{name}</h4>
+            <div class="{score_class}">
                 {overall_score}%
             </div>
         </div>
         
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px;">
             <div style="text-align: center;">
-                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{skills_score}%</div>
+                <div style="font-size: 1.2em; font-weight: bold; color: #2D3748;">{skills_score}%</div>
                 <div style="font-size: 0.8em; color: #718096;">Skills</div>
             </div>
             <div style="text-align: center;">
-                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{experience_score}%</div>
+                <div style="font-size: 1.2em; font-weight: bold; color: #2D3748;">{experience_score}%</div>
                 <div style="font-size: 0.8em; color: #718096;">Experience</div>
             </div>
             <div style="text-align: center;">
-                <div style="font-size: 1.2em; font-weight: bold; color: #4a5568;">{education_score}%</div>
+                <div style="font-size: 1.2em; font-weight: bold; color: #2D3748;">{education_score}%</div>
                 <div style="font-size: 0.8em; color: #718096;">Education</div>
             </div>
         </div>
@@ -338,108 +431,13 @@ def render_analysis_card(result, rank=None):
     st.markdown(card_html, unsafe_allow_html=True)
 
 def render_loading_spinner(text="Processing..."):
-    """Render a custom loading spinner"""
+    """Render a custom loading spinner with brand colors"""
     st.markdown(f"""
     <div style="text-align: center; padding: 20px;">
-        <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #667eea; animation: spin 1s linear infinite;"></div>
-        <p style="margin-top: 15px; color: #667eea; font-weight: 500;">{text}</p>
+        <div class="spinner" style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #E53E3E;"></div>
+        <p style="margin-top: 15px; color: #E53E3E; font-weight: 500;">{text}</p>
     </div>
     """, unsafe_allow_html=True)
-
-def render_score_gauge(score, label):
-    """Render a visual score gauge"""
-    # Determine color based on score
-    if score >= 80:
-        color = "#22c55e"  # Green
-    elif score >= 60:
-        color = "#f59e0b"  # Yellow
-    else:
-        color = "#ef4444"  # Red
-    
-    # Calculate the circumference and dash offset
-    radius = 54
-    circumference = 2 * 3.14159 * radius
-    dash_offset = circumference * (1 - score/100)
-    
-    gauge_html = f"""
-    <div style="text-align: center; margin: 10px;">
-        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto;">
-            <svg width="120" height="120" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="{radius}" fill="none" stroke="#e5e7eb" stroke-width="8"/>
-                <circle cx="60" cy="60" r="{radius}" fill="none" stroke="{color}" stroke-width="8"
-                        stroke-dasharray="{circumference}" 
-                        stroke-dashoffset="{dash_offset}"
-                        transform="rotate(-90 60 60)"/>
-                <text x="60" y="65" text-anchor="middle" font-size="18" font-weight="bold" fill="{color}">
-                    {score}%
-                </text>
-            </svg>
-        </div>
-        <div style="font-weight: 600; color: #4a5568; margin-top: 5px;">{label}</div>
-    </div>
-    """
-    
-    return gauge_html
-
-def render_comparison_table(results):
-    """Render a comparison table for multiple candidates"""
-    if not results:
-        return
-    
-    # Sort by overall score
-    sorted_results = sorted(results, key=lambda x: x.get('overall_score', 0), reverse=True)
-    
-    table_html = """
-    <div style="overflow-x: auto; margin: 20px 0;">
-        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
-            <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <tr>
-                    <th style="padding: 15px; text-align: left;">Rank</th>
-                    <th style="padding: 15px; text-align: left;">Candidate</th>
-                    <th style="padding: 15px; text-align: center;">Overall</th>
-                    <th style="padding: 15px; text-align: center;">Skills</th>
-                    <th style="padding: 15px; text-align: center;">Experience</th>
-                    <th style="padding: 15px; text-align: center;">Education</th>
-                </tr>
-            </thead>
-            <tbody>
-    """
-    
-    for i, result in enumerate(sorted_results, 1):
-        name = result.get('candidate_name', 'Unknown')
-        overall = result.get('overall_score', 0)
-        skills = result.get('skills_score', 0)
-        experience = result.get('experience_score', 0)
-        education = result.get('education_score', 0)
-        
-        # Row styling based on rank
-        if i == 1:
-            row_style = "background-color: #f0fff4; border-left: 4px solid #22c55e;"
-        elif i == 2:
-            row_style = "background-color: #fffbf0; border-left: 4px solid #f59e0b;"
-        elif i == 3:
-            row_style = "background-color: #fef2f2; border-left: 4px solid #ef4444;"
-        else:
-            row_style = "background-color: #f8fafc;"
-        
-        table_html += f"""
-                <tr style="{row_style}">
-                    <td style="padding: 12px; font-weight: bold;">#{i}</td>
-                    <td style="padding: 12px; font-weight: 600;">{name}</td>
-                    <td style="padding: 12px; text-align: center; font-weight: bold; color: #2d3748;">{overall}%</td>
-                    <td style="padding: 12px; text-align: center;">{skills}%</td>
-                    <td style="padding: 12px; text-align: center;">{experience}%</td>
-                    <td style="padding: 12px; text-align: center;">{education}%</td>
-                </tr>
-        """
-    
-    table_html += """
-            </tbody>
-        </table>
-    </div>
-    """
-    
-    st.markdown(table_html, unsafe_allow_html=True)
 
 def render_success_message(message, icon="✅"):
     """Render a custom success message"""
@@ -487,23 +485,6 @@ def render_error_message(message, icon="❌"):
         animation: slideIn 0.5s ease-out;
     ">
         <p style="margin: 0; color: #991b1b; font-weight: 600;">
-            {icon} {message}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_info_message(message, icon="ℹ️"):
-    """Render a custom info message"""
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(90deg, #3b82f620 0%, transparent 100%);
-        border-left: 4px solid #3b82f6;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        animation: slideIn 0.5s ease-out;
-    ">
-        <p style="margin: 0; color: #1e40af; font-weight: 600;">
             {icon} {message}
         </p>
     </div>
