@@ -16,14 +16,26 @@ def extract_text_from_file(uploaded_file) -> Optional[str]:
     
     if not uploaded_file:
         logger.error("No file provided for text extraction")
+        st.error("❌ No file provided for text extraction")
         return None
     
     try:
         filename = uploaded_file.name.lower()
         logger.info(f"Extracting text from {filename}")
         
-        # Get file content
-        file_content = uploaded_file.getvalue()
+        # Get file content - FIXED: Proper error handling
+        try:
+            file_content = uploaded_file.getvalue()
+            logger.info(f"Successfully read file content: {len(file_content)} bytes")
+        except Exception as e:
+            logger.error(f"Failed to read file content from {uploaded_file.name}: {str(e)}")
+            st.error(f"❌ Could not read file {uploaded_file.name}: {str(e)}")
+            return None
+        
+        if not file_content:
+            logger.error(f"File {filename} is empty")
+            st.error(f"❌ File {uploaded_file.name} appears to be empty")
+            return None
         
         if filename.endswith('.pdf'):
             return extract_text_from_pdf(file_content, uploaded_file.name)
@@ -37,17 +49,19 @@ def extract_text_from_file(uploaded_file) -> Optional[str]:
             return None
             
     except Exception as e:
-        logger.error(f"Error extracting text from {uploaded_file.name}: {str(e)}")
-        st.error(f"❌ Error reading file {uploaded_file.name}: {str(e)}")
+        logger.error(f"Critical error extracting text from {uploaded_file.name}: {str(e)}")
+        st.error(f"❌ Critical error reading file {uploaded_file.name}: {str(e)}")
         return None
 
 def extract_text_from_pdf(file_content: bytes, filename: str) -> Optional[str]:
     """Extract text from PDF file with multiple extraction methods"""
     try:
+        logger.info(f"Starting PDF text extraction for {filename}")
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
         
         if len(pdf_reader.pages) == 0:
             logger.warning(f"PDF {filename} has no pages")
+            st.error(f"❌ PDF {filename} has no pages")
             return None
         
         text_parts = []
@@ -66,11 +80,14 @@ def extract_text_from_pdf(file_content: bytes, filename: str) -> Optional[str]:
         
         if not text_parts:
             logger.error(f"No text could be extracted from PDF {filename}")
-            st.error(f"❌ Could not extract text from PDF. The file may be password-protected or contain only images.")
+            st.error(f"❌ Could not extract text from PDF {filename}. The file may be password-protected or contain only images.")
             return None
         
         full_text = '\n\n'.join(text_parts)
         logger.info(f"Successfully extracted {len(full_text)} characters from PDF {filename}")
+        
+        # ADDED: Show success message to user
+        st.success(f"✅ Successfully extracted text from PDF ({len(full_text)} characters)")
         
         return full_text
         
@@ -82,6 +99,7 @@ def extract_text_from_pdf(file_content: bytes, filename: str) -> Optional[str]:
 def extract_text_from_docx(file_content: bytes, filename: str) -> Optional[str]:
     """Extract text from DOCX file"""
     try:
+        logger.info(f"Starting DOCX text extraction for {filename}")
         doc = docx.Document(io.BytesIO(file_content))
         
         text_parts = []
@@ -106,6 +124,9 @@ def extract_text_from_docx(file_content: bytes, filename: str) -> Optional[str]:
         full_text = '\n\n'.join(text_parts)
         logger.info(f"Successfully extracted {len(full_text)} characters from DOCX {filename}")
         
+        # ADDED: Show success message to user
+        st.success(f"✅ Successfully extracted text from DOCX ({len(full_text)} characters)")
+        
         return full_text
         
     except Exception as e:
@@ -116,6 +137,8 @@ def extract_text_from_docx(file_content: bytes, filename: str) -> Optional[str]:
 def extract_text_from_txt(file_content: bytes, filename: str) -> Optional[str]:
     """Extract text from TXT file with encoding detection"""
     
+    logger.info(f"Starting TXT text extraction for {filename}")
+    
     # Common encodings to try
     encodings = ['utf-8', 'utf-16', 'latin-1', 'cp1252', 'ascii']
     
@@ -124,6 +147,10 @@ def extract_text_from_txt(file_content: bytes, filename: str) -> Optional[str]:
             text = file_content.decode(encoding)
             if text and text.strip():
                 logger.info(f"Successfully decoded TXT {filename} with {encoding} encoding")
+                
+                # ADDED: Show success message to user
+                st.success(f"✅ Successfully extracted text from TXT ({len(text)} characters)")
+                
                 return text.strip()
         except UnicodeDecodeError:
             continue
@@ -176,9 +203,11 @@ def validate_file_content(text: str, filename: str) -> bool:
     return True
 
 def get_file_info(uploaded_file) -> dict:
-    """Get file information for display"""
+    """Get file information for display - FIXED size calculation"""
     try:
-        file_size = len(uploaded_file.getvalue())
+        # FIXED: Use len(getvalue()) instead of .size attribute
+        file_content = uploaded_file.getvalue()
+        file_size = len(file_content)
         file_type = uploaded_file.name.split('.')[-1].upper()
         
         if file_size < 1024:
