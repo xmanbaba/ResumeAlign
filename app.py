@@ -464,7 +464,7 @@ with tab1:
             
             if errors:
                 display_persistent_errors(errors)
-                return  # Don't proceed if validation failed
+                st.stop()  # Don't proceed if validation failed
             
             if valid_files:
                 render_compact_file_info(uploaded_file)
@@ -700,5 +700,6 @@ else:
 
 if __name__ == "__main__":
     main()
+
 
 
