@@ -100,29 +100,6 @@ def apply_custom_css():
         font-size: 0.9rem;
     }
     
-    /* Alternative compact upload style */
-    .compact-upload {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        padding: 0.8rem 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin: 0.5rem 0;
-    }
-    
-    .compact-upload:hover {
-        background: #fef2f2;
-        border-color: #E53E3E;
-    }
-    
-    .compact-upload-text {
-        color: #4a5568;
-        font-size: 0.9rem;
-        margin: 0;
-    }
-    
     /* Text area improvements */
     .stTextArea > div > div > textarea {
         border-radius: 8px;
@@ -391,7 +368,7 @@ def render_sidebar():
     st.markdown("*Powered by Google Gemini 2.5 Flash*")
 
 def render_compact_file_info(uploaded_files):
-    """Render compact file information"""
+    """Render compact file information - FIXED to handle Streamlit file objects"""
     if not uploaded_files:
         return
         
@@ -399,16 +376,20 @@ def render_compact_file_info(uploaded_files):
     files = uploaded_files if isinstance(uploaded_files, list) else [uploaded_files]
     
     for i, file in enumerate(files, 1):
-        file_size = getattr(file, 'size', 0)
-        if file_size > 0:
+        try:
+            # FIXED: Use len(getvalue()) for Streamlit uploaded files
+            file_content = file.getvalue()
+            file_size = len(file_content)
+            
             if file_size < 1024:
                 size_str = f"{file_size} bytes"
             elif file_size < 1024 * 1024:
                 size_str = f"{file_size / 1024:.1f} KB"
             else:
                 size_str = f"{file_size / (1024 * 1024):.1f} MB"
-        else:
+        except Exception as e:
             size_str = "Unknown size"
+            logger.warning(f"Could not get size for file {file.name}: {str(e)}")
         
         st.markdown(f"""
         <div class="file-info">
