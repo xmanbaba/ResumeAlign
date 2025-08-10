@@ -561,7 +561,7 @@ with tab1:
         elif not uploaded_file and st.session_state.job_description.strip():
             st.info("👆 Upload a resume file to begin analysis.")
     
-    with tab2:
+with tab2:
         st.markdown("### 📁 Batch Resume Analysis")
         render_file_limit_warning()
         
@@ -700,4 +700,5 @@ else:
 
 if __name__ == "__main__":
     main()
+
 
