@@ -1,12 +1,17 @@
+# Core Streamlit and API requirements
 streamlit>=1.28.0
 google-generativeai>=0.3.0
+
+# File processing dependencies
 PyPDF2>=3.0.1
-pdfplumber>=0.9.0
 python-docx>=0.8.11
+
+# PDF generation dependencies
 reportlab>=4.0.4
+
+# Data processing
 pandas>=2.0.0
 openpyxl>=3.1.0
-python-dotenv>=1.0.0
-pypdf>=3.9.0         # ✅ Recommended over PyPDF2
-tiktoken>=0.5.1      # Optional: for token counting
-requests>=2.31.0     # For API calls
+
+# Utility libraries
+python-dateutil>=2.8.2
