@@ -434,7 +434,7 @@ def main():
     # Analysis tabs
     tab1, tab2 = st.tabs(["📄 Single Resume Analysis", f"📁 Batch Analysis (Max {BATCH_LIMIT} files)"])
     
-    with tab1:
+with tab1:
         st.markdown("### 📄 Single Resume Analysis")
         st.markdown("Upload one resume for detailed individual analysis.")
         
@@ -449,71 +449,112 @@ def main():
             help="Select a resume file for AI analysis"
         )
         
+        # DEBUG: Show current state
+        if uploaded_file:
+            st.info(f"📄 File uploaded: {uploaded_file.name}")
+            
+        if st.session_state.job_description.strip():
+            st.info(f"📋 Job description ready ({len(st.session_state.job_description)} characters)")
+        else:
+            st.warning("⚠️ Job description needed")
+        
         if uploaded_file and st.session_state.job_description.strip():
             # Validate file
             valid_files, errors = validate_uploaded_files(uploaded_file, is_batch=False)
             
             if errors:
                 display_persistent_errors(errors)
+                return  # Don't proceed if validation failed
             
             if valid_files:
                 render_compact_file_info(uploaded_file)
                 
                 col1, col2 = st.columns([3, 1])
                 with col2:
-                    # FIXED: Unique analyze button key
-                    analyze_button_key = f"analyze_single_{st.session_state.session_id}_{int(datetime.now().timestamp() * 1000)}"
+                    # FIXED: Simple, unique analyze button key
+                    current_timestamp = int(time.time() * 1000)
+                    analyze_button_key = f"analyze_btn_{current_timestamp}"
+                    
                     analyze_button = st.button(
                         "🔍 Analyze Resume",
                         key=analyze_button_key,
                         use_container_width=True,
-                        type="primary"
+                        type="primary",
+                        help="Click to start AI analysis"
                     )
                 
+                # DEBUG: Show button state
                 if analyze_button:
-                    with st.spinner("🔄 Analyzing with Gemini 2.5 Flash..."):
-                        try:
-                            # Extract text - FIXED: Now using proper file_utils
-                            logger.info(f"Extracting text from {uploaded_file.name}")
-                            file_text = extract_text_from_file(uploaded_file)
+                    st.success("✅ Button clicked! Starting analysis...")
+                
+                if analyze_button:
+                    # Create a placeholder for status updates
+                    status_placeholder = st.empty()
+                    
+                    try:
+                        status_placeholder.info("🔄 Step 1: Extracting text from file...")
+                        
+                        # Extract text - FIXED: Now using proper file_utils with better error handling
+                        logger.info(f"Extracting text from {uploaded_file.name}")
+                        file_text = extract_text_from_file(uploaded_file)
+                        
+                        # DEBUG: Check text extraction result
+                        if file_text:
+                            status_placeholder.info(f"✅ Step 1 Complete: Extracted {len(file_text)} characters")
+                            logger.info(f"Successfully extracted {len(file_text)} characters")
+                        else:
+                            status_placeholder.error("❌ Step 1 Failed: Could not extract text from file")
+                            st.error("Could not extract text from the file. Please ensure it's not corrupted or password-protected.")
+                            return
+                        
+                        if file_text and file_text.strip():
+                            status_placeholder.info("🔄 Step 2: Generating analysis with AI...")
                             
-                            if file_text and file_text.strip():
-                                logger.info(f"Successfully extracted {len(file_text)} characters")
-                                
-                                # Generate hash for caching
-                                candidate_hash = generate_candidate_hash(file_text, uploaded_file.name)
-                                cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
-                                
-                                # Check cache
-                                if cache_key in st.session_state.candidate_cache:
-                                    result = st.session_state.candidate_cache[cache_key]
-                                    st.info("📋 Using cached result")
-                                else:
-                                    # Analyze
-                                    result = analyze_single_candidate(
-                                        file_text,
-                                        st.session_state.job_description,
-                                        uploaded_file.name,
-                                        batch_mode=False
-                                    )
-                                    
-                                    if result and result.get('overall_score', 0) >= 0:
-                                        st.session_state.candidate_cache[cache_key] = result
+                            # Generate hash for caching
+                            import hashlib
+                            candidate_hash = generate_candidate_hash(file_text, uploaded_file.name)
+                            cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
+                            
+                            # Check cache
+                            if cache_key in st.session_state.candidate_cache:
+                                result = st.session_state.candidate_cache[cache_key]
+                                status_placeholder.success("📋 Using cached result")
+                            else:
+                                # Analyze
+                                result = analyze_single_candidate(
+                                    file_text,
+                                    st.session_state.job_description,
+                                    uploaded_file.name,
+                                    batch_mode=False
+                                )
                                 
                                 if result and result.get('overall_score', 0) >= 0:
-                                    result['timestamp'] = datetime.now()
-                                    st.session_state.analysis_results = [result]  # Replace for single analysis
-                                    
-                                    render_persistent_success("Analysis completed successfully!")
-                                    display_analysis_results([result], st.session_state.job_description)
-                                else:
-                                    render_persistent_error("Analysis failed. Please check the file and try again.")
+                                    st.session_state.candidate_cache[cache_key] = result
+                                    status_placeholder.success("✅ Step 2 Complete: Analysis finished")
+                            
+                            if result and result.get('overall_score', 0) >= 0:
+                                result['timestamp'] = datetime.now()
+                                st.session_state.analysis_results = [result]  # Replace for single analysis
+                                
+                                status_placeholder.success("🎉 Analysis completed successfully!")
+                                
+                                # Clear the status after a moment
+                                time.sleep(2)
+                                status_placeholder.empty()
+                                
+                                # Force a rerun to show results
+                                st.rerun()
                             else:
-                                render_persistent_error("Could not extract text from the file. Please ensure it's not corrupted or password-protected.")
-                        
-                        except Exception as e:
-                            logger.error(f"Single analysis error: {str(e)}")
-                            render_persistent_error(f"Analysis failed: {str(e)}")
+                                status_placeholder.error("❌ Step 2 Failed: Analysis returned invalid results")
+                                st.error("Analysis failed. Please check the file and try again.")
+                        else:
+                            status_placeholder.error("❌ Step 1 Failed: No text content found")
+                            st.error("Could not extract text from the file. Please ensure it's not corrupted or password-protected.")
+                    
+                    except Exception as e:
+                        logger.error(f"Single analysis error: {str(e)}")
+                        status_placeholder.error(f"❌ Analysis failed: {str(e)}")
+                        st.error(f"Analysis failed: {str(e)}")
         
         elif uploaded_file and not st.session_state.job_description.strip():
             st.warning("⚠️ Please enter a job description first.")
@@ -536,96 +577,119 @@ def main():
             help=f"Maximum {BATCH_LIMIT} files per batch"
         )
         
-        if uploaded_files and st.session_state.job_description.strip():
-            # Validate files
-            valid_files, errors = validate_uploaded_files(uploaded_files, is_batch=True)
-            
-            if errors:
-                display_persistent_errors(errors)
-            
-            if valid_files:
-                st.success(f"✅ {len(valid_files)} valid files ready for analysis")
-                render_compact_file_info(valid_files)
-                
-                col1, col2 = st.columns([3, 1])
-                with col2:
-                    # FIXED: Unique batch analyze button key
-                    batch_button_key = f"analyze_batch_{st.session_state.session_id}_{int(datetime.now().timestamp() * 1000)}"
-                    analyze_batch_button = st.button(
-                        "🔍 Analyze All",
-                        key=batch_button_key,
-                        use_container_width=True,
-                        type="primary"
-                    )
-                
-                if analyze_batch_button:
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    try:
-                        batch_results = []
-                        total_files = len(valid_files)
-                        
-                        for i, file in enumerate(valid_files):
-                            progress = i / total_files
-                            progress_bar.progress(progress)
-                            status_text.info(f"🔄 Analyzing {file.name}... ({i+1}/{total_files})")
-                            
-                            try:
-                                file_text = extract_text_from_file(file)
-                                
-                                if file_text and file_text.strip():
-                                    # Check cache
-                                    candidate_hash = generate_candidate_hash(file_text, file.name)
-                                    cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
-                                    
-                                    if cache_key in st.session_state.candidate_cache:
-                                        result = st.session_state.candidate_cache[cache_key]
-                                    else:
-                                        result = analyze_single_candidate(
-                                            file_text,
-                                            st.session_state.job_description,
-                                            file.name,
-                                            batch_mode=True
-                                        )
-                                        
-                                        if result and result.get('overall_score', 0) >= 0:
-                                            st.session_state.candidate_cache[cache_key] = result
-                                    
-                                    if result and result.get('overall_score', 0) >= 0:
-                                        result['timestamp'] = datetime.now()
-                                        batch_results.append(result)
-                                
-                            except Exception as e:
-                                logger.error(f"Error processing {file.name}: {str(e)}")
-                                status_text.error(f"❌ Error with {file.name}")
-                            
-                            # Rate limiting for API
-                            if i < total_files - 1:
-                                time.sleep(3)
-                        
-                        progress_bar.progress(1.0)
-                        
-                        if batch_results:
-                            st.session_state.analysis_results = batch_results  # Replace for batch analysis
-                            status_text.success(f"✅ Analyzed {len(batch_results)} out of {total_files} resumes!")
-                            display_analysis_results(batch_results, st.session_state.job_description)
-                        else:
-                            status_text.error("❌ No resumes could be analyzed successfully.")
-                    
-                    except Exception as e:
-                        logger.error(f"Batch analysis error: {str(e)}")
-                        render_persistent_error(f"Batch analysis failed: {str(e)}")
-                    
-                    finally:
-                        time.sleep(2)
-                        progress_bar.empty()
-                        status_text.empty()
+# DEBUGGING BUTTON HANDLER - ADD THIS TO YOUR APP.PY SINGLE ANALYSIS SECTION
+
+# Replace your current button handling section with this debug version:
+
+if uploaded_file and st.session_state.job_description.strip():
+    # Validate file
+    valid_files, errors = validate_uploaded_files(uploaded_file, is_batch=False)
+    
+    # DEBUG: Show validation results
+    st.write("🔍 DEBUG INFO:")
+    st.write(f"- File uploaded: {uploaded_file.name if uploaded_file else 'None'}")
+    st.write(f"- Job description length: {len(st.session_state.job_description)} chars")
+    st.write(f"- Valid files: {len(valid_files) if valid_files else 0}")
+    st.write(f"- Validation errors: {len(errors) if errors else 0}")
+    
+    if errors:
+        st.error("Validation errors:")
+        for error in errors:
+            st.write(f"  • {error}")
+        display_persistent_errors(errors)
+    
+    if valid_files:
+        render_compact_file_info(uploaded_file)
         
-        elif uploaded_files and not st.session_state.job_description.strip():
-            st.warning("⚠️ Please enter a job description first.")
-        elif not uploaded_files and st.session_state.job_description.strip():
-            st.info("👆 Upload resume files to begin batch analysis.")
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            # SIMPLIFIED button key
+            analyze_button = st.button(
+                "🔍 Analyze Resume",
+                key="simple_analyze_btn",  # Simple key
+                use_container_width=True,
+                type="primary"
+            )
+            
+            # DEBUG: Show button state
+            st.write(f"Button clicked: {analyze_button}")
+        
+        # CRITICAL FIX: Move button handling outside the column
+        if analyze_button:
+            st.balloons()  # Visual confirmation
+            st.success("🎉 BUTTON CLICK DETECTED!")
+            
+            # Add detailed debugging
+            with st.expander("🔍 DEBUG: Analysis Steps", expanded=True):
+                st.write("Starting analysis process...")
+                
+                # Step 1: Text Extraction
+                st.write("**Step 1: Text Extraction**")
+                try:
+                    file_text = extract_text_from_file(uploaded_file)
+                    if file_text:
+                        st.success(f"✅ Extracted {len(file_text)} characters")
+                        st.write(f"First 200 chars: {file_text[:200]}...")
+                    else:
+                        st.error("❌ Text extraction failed")
+                        st.stop()
+                except Exception as e:
+                    st.error(f"❌ Text extraction error: {str(e)}")
+                    st.stop()
+                
+                # Step 2: Name Extraction
+                st.write("**Step 2: Name Extraction**")
+                try:
+                    from name_extraction import extract_name_from_text, extract_name_from_filename
+                    candidate_name = extract_name_from_text(file_text)
+                    if not candidate_name or candidate_name == "Unknown Candidate":
+                        candidate_name = extract_name_from_filename(uploaded_file.name)
+                    st.success(f"✅ Candidate name: {candidate_name}")
+                except Exception as e:
+                    st.error(f"❌ Name extraction error: {str(e)}")
+                    candidate_name = "Unknown Candidate"
+                
+                # Step 3: AI Analysis
+                st.write("**Step 3: AI Analysis**")
+                try:
+                    with st.spinner("Analyzing with Gemini 2.5 Flash..."):
+                        result = analyze_single_candidate(
+                            file_text,
+                            st.session_state.job_description,
+                            uploaded_file.name,
+                            batch_mode=False
+                        )
+                    
+                    if result and result.get('overall_score', 0) >= 0:
+                        st.success(f"✅ Analysis complete: {result.get('overall_score', 0)}% match")
+                        
+                        # Store result
+                        result['timestamp'] = datetime.now()
+                        st.session_state.analysis_results = [result]
+                        
+                        # Show quick summary
+                        st.json({
+                            'candidate_name': result.get('candidate_name'),
+                            'overall_score': result.get('overall_score'),
+                            'skills_score': result.get('skills_score'),
+                            'experience_score': result.get('experience_score'),
+                            'education_score': result.get('education_score'),
+                            'has_interview_questions': len(result.get('interview_questions', [])) > 0
+                        })
+                        
+                    else:
+                        st.error("❌ Analysis returned invalid results")
+                        
+                except Exception as e:
+                    st.error(f"❌ Analysis error: {str(e)}")
+                    st.write(f"Error details: {str(e)}")
+
+elif uploaded_file and not st.session_state.job_description.strip():
+    st.warning("⚠️ Please enter a job description first.")
+elif not uploaded_file and st.session_state.job_description.strip():
+    st.info("👆 Upload a resume file to begin analysis.")
+else:
+    st.info("👆 Upload a resume file and enter job description to begin analysis.")
     
     # Display previous results if any
     if st.session_state.analysis_results:
@@ -636,3 +700,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
