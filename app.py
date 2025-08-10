@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 import hashlib
 import json
+import uuid
 
 # Import our custom modules
 from ai_analysis import analyze_single_candidate, analyze_batch_candidates
@@ -37,6 +38,8 @@ def initialize_session_state():
         st.session_state.candidate_cache = {}
     if 'error_messages' not in st.session_state:
         st.session_state.error_messages = []
+    if 'session_id' not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())[:8]
 
 def clear_session():
     """Clear ALL session state data completely"""
@@ -62,7 +65,8 @@ def clear_session():
             logger.info(f"Clearing session key: {key}")
             del st.session_state[key]
     
-    # Force widget refresh with timestamp
+    # Generate new session ID and clear trigger
+    st.session_state.session_id = str(uuid.uuid4())[:8]
     st.session_state['clear_trigger'] = datetime.now().timestamp()
     
     logger.info("Session cleared successfully")
@@ -175,10 +179,14 @@ def create_json_report(results):
         return None
 
 def display_analysis_results(results, job_description):
-    """Display analysis results with improved formatting and fixed button IDs"""
+    """Display analysis results with improved formatting and FIXED button IDs"""
     if not results:
         st.warning("No analysis results to display.")
         return
+    
+    # Create unique session identifier for all buttons
+    session_id = st.session_state.get('session_id', 'default')
+    timestamp = str(int(datetime.now().timestamp() * 1000))  # Millisecond timestamp
     
     # Create tabs for different views
     tab1, tab2, tab3 = st.tabs(["📊 Rankings", "📋 Detailed Analysis", "📄 Export"])
@@ -267,19 +275,22 @@ def display_analysis_results(results, job_description):
                     if strengths:
                         st.markdown("**✅ Strengths:**")
                         for strength in strengths:
-                            st.write(f"• {strength}")
+                            if strength and len(strength.strip()) > 5:
+                                st.write(f"• {strength}")
                     
                     if weaknesses:
                         st.markdown("**⚠️ Areas for Improvement:**")
                         for weakness in weaknesses:
-                            st.write(f"• {weakness}")
+                            if weakness and len(weakness.strip()) > 5:
+                                st.write(f"• {weakness}")
                     
-                    # Interview Questions - NEW SECTION
+                    # Interview Questions - FIXED SECTION
                     interview_questions = result.get('interview_questions', [])
                     if interview_questions:
                         st.markdown("**❓ Interview Questions:**")
                         for j, question in enumerate(interview_questions, 1):
-                            st.write(f"{j}. {question}")
+                            if question and len(question.strip()) > 10:
+                                st.write(f"{j}. {question}")
                     
                     # Recommendations
                     recommendations = result.get('recommendations', '')
@@ -290,11 +301,12 @@ def display_analysis_results(results, job_description):
     with tab3:
         st.subheader("📄 Export Results")
         
+        # FIXED: Reordered buttons - PDF first, Excel second, JSON third
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            # PDF Download - Using unique keys to avoid duplicate ID errors
-            pdf_button_key = f"pdf_btn_{len(results)}_{datetime.now().microsecond}"
+            # PDF Download - FIXED unique keys
+            pdf_button_key = f"pdf_btn_{session_id}_{timestamp}_{len(results)}"
             if st.button("📑 Download PDF", key=pdf_button_key, use_container_width=True):
                 try:
                     with st.spinner("Generating PDF/ZIP..."):
@@ -310,7 +322,7 @@ def display_analysis_results(results, job_description):
                                     data=pdf_data,
                                     file_name=f"Resume_Analysis_{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                                     mime="application/pdf",
-                                    key=f"pdf_download_{datetime.now().microsecond}",
+                                    key=f"pdf_download_{session_id}_{timestamp}",
                                     use_container_width=True
                                 )
                                 render_persistent_success("PDF report ready for download!")
@@ -323,7 +335,7 @@ def display_analysis_results(results, job_description):
                                     data=zip_data,
                                     file_name=f"Resume_Analysis_Batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                                     mime="application/zip",
-                                    key=f"zip_download_{datetime.now().microsecond}",
+                                    key=f"zip_download_{session_id}_{timestamp}",
                                     use_container_width=True
                                 )
                                 render_persistent_success("ZIP file with individual reports ready for download!")
@@ -331,8 +343,8 @@ def display_analysis_results(results, job_description):
                     render_persistent_error(f"Failed to generate PDF: {str(e)}")
         
         with col2:
-            # Excel Download
-            excel_button_key = f"excel_btn_{len(results)}_{datetime.now().microsecond}"
+            # Excel Download - FIXED unique keys
+            excel_button_key = f"excel_btn_{session_id}_{timestamp}_{len(results)}"
             if st.button("📊 Download Excel", key=excel_button_key, use_container_width=True):
                 try:
                     excel_data = create_excel_report(results)
@@ -342,7 +354,7 @@ def display_analysis_results(results, job_description):
                             data=excel_data,
                             file_name=f"resume_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"excel_download_{datetime.now().microsecond}",
+                            key=f"excel_download_{session_id}_{timestamp}",
                             use_container_width=True
                         )
                         render_persistent_success("Excel report ready for download!")
@@ -350,8 +362,8 @@ def display_analysis_results(results, job_description):
                     render_persistent_error(f"Failed to generate Excel report: {str(e)}")
         
         with col3:
-            # JSON Download
-            json_button_key = f"json_btn_{len(results)}_{datetime.now().microsecond}"
+            # JSON Download - FIXED unique keys
+            json_button_key = f"json_btn_{session_id}_{timestamp}_{len(results)}"
             if st.button("📋 Download JSON", key=json_button_key, use_container_width=True):
                 try:
                     json_data = create_json_report(results)
@@ -361,7 +373,7 @@ def display_analysis_results(results, job_description):
                             data=json_data,
                             file_name=f"resume_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                             mime="application/json",
-                            key=f"json_download_{datetime.now().microsecond}",
+                            key=f"json_download_{session_id}_{timestamp}",
                             use_container_width=True
                         )
                         render_persistent_success("JSON report ready for download!")
@@ -403,9 +415,9 @@ def main():
     with st.container():
         st.markdown("### 📋 Job Description")
         
-        job_desc_key = "job_desc_input"
+        job_desc_key = f"job_desc_input_{st.session_state.session_id}"
         if 'clear_trigger' in st.session_state:
-            job_desc_key = f"job_desc_input_{st.session_state.clear_trigger}"
+            job_desc_key = f"job_desc_input_{st.session_state.session_id}_{int(st.session_state.clear_trigger)}"
         
         job_desc = st.text_area(
             "Enter detailed job description for accurate matching:",
@@ -426,9 +438,9 @@ def main():
         st.markdown("### 📄 Single Resume Analysis")
         st.markdown("Upload one resume for detailed individual analysis.")
         
-        single_file_key = "single_file"
+        single_file_key = f"single_file_{st.session_state.session_id}"
         if 'clear_trigger' in st.session_state:
-            single_file_key = f"single_file_{st.session_state.clear_trigger}"
+            single_file_key = f"single_file_{st.session_state.session_id}_{int(st.session_state.clear_trigger)}"
         
         uploaded_file = st.file_uploader(
             "Choose resume file (PDF, DOCX, TXT - Max 10MB)",
@@ -449,7 +461,8 @@ def main():
                 
                 col1, col2 = st.columns([3, 1])
                 with col2:
-                    analyze_button_key = f"analyze_single_{datetime.now().microsecond}"
+                    # FIXED: Unique analyze button key
+                    analyze_button_key = f"analyze_single_{st.session_state.session_id}_{int(datetime.now().timestamp() * 1000)}"
                     analyze_button = st.button(
                         "🔍 Analyze Resume",
                         key=analyze_button_key,
@@ -460,10 +473,13 @@ def main():
                 if analyze_button:
                     with st.spinner("🔄 Analyzing with Gemini 2.5 Flash..."):
                         try:
-                            # Extract text
+                            # Extract text - FIXED: Now using proper file_utils
+                            logger.info(f"Extracting text from {uploaded_file.name}")
                             file_text = extract_text_from_file(uploaded_file)
                             
                             if file_text and file_text.strip():
+                                logger.info(f"Successfully extracted {len(file_text)} characters")
+                                
                                 # Generate hash for caching
                                 candidate_hash = generate_candidate_hash(file_text, uploaded_file.name)
                                 cache_key = f"{candidate_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()}"
@@ -508,9 +524,9 @@ def main():
         st.markdown("### 📁 Batch Resume Analysis")
         render_file_limit_warning()
         
-        batch_files_key = "batch_files"
+        batch_files_key = f"batch_files_{st.session_state.session_id}"
         if 'clear_trigger' in st.session_state:
-            batch_files_key = f"batch_files_{st.session_state.clear_trigger}"
+            batch_files_key = f"batch_files_{st.session_state.session_id}_{int(st.session_state.clear_trigger)}"
         
         uploaded_files = st.file_uploader(
             f"Choose up to {BATCH_LIMIT} resume files (PDF, DOCX, TXT)",
@@ -533,7 +549,8 @@ def main():
                 
                 col1, col2 = st.columns([3, 1])
                 with col2:
-                    batch_button_key = f"analyze_batch_{datetime.now().microsecond}"
+                    # FIXED: Unique batch analyze button key
+                    batch_button_key = f"analyze_batch_{st.session_state.session_id}_{int(datetime.now().timestamp() * 1000)}"
                     analyze_batch_button = st.button(
                         "🔍 Analyze All",
                         key=batch_button_key,
