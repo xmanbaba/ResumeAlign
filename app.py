@@ -505,7 +505,7 @@ with tab1:
                         else:
                             status_placeholder.error("❌ Step 1 Failed: Could not extract text from file")
                             st.error("Could not extract text from the file. Please ensure it's not corrupted or password-protected.")
-                            return
+                            st.stop()
                         
                         if file_text and file_text.strip():
                             status_placeholder.info("🔄 Step 2: Generating analysis with AI...")
@@ -700,6 +700,7 @@ else:
 
 if __name__ == "__main__":
     main()
+
 
 
 
