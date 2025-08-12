@@ -1,5 +1,10 @@
 import streamlit as st
 from datetime import datetime
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def apply_custom_css():
     """Apply custom CSS styling with COMPACT file upload area"""
@@ -202,6 +207,17 @@ def apply_custom_css():
         background: #b91c1c !important;
     }
     
+    /* RIGHT-ALIGNED ANALYZE BUTTON - NEW STYLING */
+    .analyze-button-right {
+        display: flex;
+        justify-content: flex-end;
+        margin: 1rem 0;
+    }
+    
+    .analyze-button-right .stButton {
+        margin-left: auto;
+    }
+    
     /* Expander styling */
     .streamlit-expanderHeader {
         background-color: #f8fafc;
@@ -279,6 +295,10 @@ def apply_custom_css():
             padding: 0.8rem !important;
             min-height: 50px !important;
         }
+        
+        .analyze-button-right {
+            justify-content: center;
+        }
     }
     
     /* Custom animations */
@@ -324,7 +344,7 @@ def render_header():
     """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Render enhanced sidebar with navigation and info - CLEANED UP"""
+    """Render enhanced sidebar with navigation and info - REMOVED GEMINI REFERENCE"""
     st.markdown("### 🎯 ResumeAlign")
     st.markdown("---")
     
@@ -341,7 +361,7 @@ def render_sidebar():
         ✅ **Candidate Ranking** - Automatic ranking by fit score
         """)
     
-    # Usage tips - comprehensive (REMOVED FREE TIER REFERENCES)
+    # Usage tips - comprehensive
     with st.expander("💡 Usage Tips"):
         st.markdown("""
         **For Best Results:**
@@ -364,8 +384,8 @@ def render_sidebar():
         **Best Practices:** Quality over quantity - detailed JD gets better results
         """)
     
-    st.markdown("---")
-    st.markdown("*Powered by Google Gemini 2.5 Flash*")
+    # REMOVED: st.markdown("---")
+    # REMOVED: st.markdown("*Powered by Google Gemini 2.5 Flash*")
 
 def render_compact_file_info(uploaded_files):
     """Render compact file information - FIXED to handle Streamlit file objects"""
@@ -433,7 +453,7 @@ def render_persistent_success(message):
     """, unsafe_allow_html=True)
 
 def render_file_limit_warning():
-    """Render warning about file limits - REMOVED FREE TIER REFERENCE"""
+    """Render warning about file limits"""
     st.markdown(f"""
     <div style="
         background: linear-gradient(90deg, #f59e0b20 0%, transparent 100%);
@@ -447,6 +467,22 @@ def render_file_limit_warning():
         ⚠️ <strong>Batch Limit:</strong> Maximum 5 files per batch analysis
     </div>
     """, unsafe_allow_html=True)
+
+def render_right_aligned_analyze_button(button_text, button_key, disabled=False):
+    """Render analyze button aligned to the right"""
+    st.markdown('<div class="analyze-button-right">', unsafe_allow_html=True)
+    
+    result = st.button(
+        button_text, 
+        key=button_key, 
+        type="primary", 
+        disabled=disabled,
+        use_container_width=False
+    )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    return result
 
 def render_analysis_card(result, rank=None):
     """Render a single analysis result card"""
