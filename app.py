@@ -8,7 +8,7 @@ import hashlib
 import json
 import uuid
 
-# Import our custom modules
+# Import our custom modules - FIXED: Removed problematic import
 from ai_analysis import analyze_single_candidate, analyze_batch_candidates
 from file_utils import extract_text_from_file, save_uploaded_file
 from name_extraction import extract_name_from_text, extract_name_from_filename
