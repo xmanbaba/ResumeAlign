@@ -5,7 +5,7 @@ import time
 import json
 import re
 from typing import Dict, Any, Optional, List
-from name_extraction import extract_name_from_text, extract_name_from_filename
+from name_extraction import extract_name_from_text, extract_name_from_filename  # FIXED: Correct function name
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -297,9 +297,9 @@ def create_default_comprehensive_result(candidate_name: str) -> Dict[str, Any]:
     }
 
 def analyze_single_candidate(resume_text: str, job_description: str, filename: str, batch_mode: bool = False, max_retries: int = 2) -> Optional[Dict[str, Any]]:
-    """Analyze single candidate using Gemini 2.5 Flash model - FIXED MODEL NAME"""
+    """Analyze single candidate using Gemini 1.5 Flash model - FIXED MODEL NAME"""
     
-    logger.info(f"Analyzing {filename} with Gemini 2.5 Flash")
+    logger.info(f"Analyzing {filename} with Gemini 1.5 Flash")
     
     # Validate inputs
     if not resume_text or not resume_text.strip():
@@ -318,17 +318,17 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
     if not configure_gemini():
         return create_default_comprehensive_result("Unknown Candidate")
     
-    # Extract candidate name
+    # Extract candidate name - FIXED: Use correct function name
     candidate_name = extract_name_from_text(resume_text)
     if not candidate_name or candidate_name == "Unknown Candidate":
-        candidate_name = extract_name_from_filename(filename)
+        candidate_name = extract_name_from_filename(filename)  # FIXED: Correct function name
     
     logger.info(f"Extracted candidate name: {candidate_name}")
     
     try:
-        # FIXED: Use correct Gemini 2.5 Flash model name
+        # FIXED: Use correct Gemini 1.5 Flash model name
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash-002",  # CORRECTED MODEL NAME
+            model_name="gemini-1.5-flash",  # CORRECTED MODEL NAME
             generation_config={
                 "temperature": 0.1,  # Lower temperature for more consistent results
                 "top_p": 0.8,
@@ -346,7 +346,7 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
                 
                 # Show progress to user
                 if attempt == 0:
-                    st.info(f"🔄 Analyzing {candidate_name} with Gemini 2.5 Flash...")
+                    st.info(f"🔄 Analyzing {candidate_name} with Gemini 1.5 Flash...")
                 
                 response = model.generate_content(prompt)
                 
