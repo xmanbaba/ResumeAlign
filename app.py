@@ -8,10 +8,9 @@ import hashlib
 import json
 import uuid
 
-# Import our custom modules - FIXED: Removed problematic import
+# Import our custom modules - FIXED: Removed problematic name_extraction imports
 from ai_analysis import analyze_single_candidate, analyze_batch_candidates
 from file_utils import extract_text_from_file, save_uploaded_file
-from name_extraction import extract_name_from_text, extract_name_from_filename
 from pdf_generator import generate_comparison_pdf, generate_single_candidate_pdf, generate_batch_zip_reports
 from ui_components import (
     apply_custom_css, render_header, render_sidebar, render_compact_file_info,
