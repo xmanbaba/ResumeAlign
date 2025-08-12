@@ -65,7 +65,7 @@ def try_explicit_patterns(text: str) -> Optional[str]:
             match = re.match(pattern, line)
             if match:
                 name = match.group(1).strip()
-                if len(name.split()) >= 2:  # Ensure we have at least first and last name
+                if len(name.split()) >= 2 and is_valid_name(name):  # Ensure we have at least first and last name
                     return format_name(name)
     
     return None
@@ -79,8 +79,11 @@ def try_first_lines_extraction(text: str) -> Optional[str]:
         if not line or len(line) < 3:
             continue
         
-        # Skip common resume headers
-        if any(keyword in line.lower() for keyword in ['resume', 'cv', 'curriculum', 'profile', 'contact']):
+        # Skip common resume headers and false positives
+        if any(keyword in line.lower() for keyword in [
+            'resume', 'cv', 'curriculum', 'profile', 'contact', 'real', 'document',
+            'confidential', 'draft', 'version', 'page', 'template'
+        ]):
             continue
         
         # Check if line looks like a name
@@ -103,8 +106,11 @@ def try_email_based_extraction(text: str) -> Optional[str]:
         parts = re.split(r'[._-]+', email_part.lower())
         
         if len(parts) >= 2:
-            # Capitalize each part
-            name_parts = [part.capitalize() for part in parts if part.isalpha() and len(part) > 1]
+            # Capitalize each part and filter out common non-name parts
+            name_parts = []
+            for part in parts:
+                if part.isalpha() and len(part) > 1 and not is_common_non_name_word(part):
+                    name_parts.append(part.capitalize())
             
             if len(name_parts) >= 2:
                 name = ' '.join(name_parts[:3])  # Take up to 3 parts
@@ -141,7 +147,7 @@ def try_structured_patterns(text: str) -> Optional[str]:
     patterns = [
         r'(?:PERSONAL\s+INFORMATION|PERSONAL\s+DETAILS)[:\s\n]+.*?(?:Name[:\s]+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
         r'(?:CANDIDATE|APPLICANT)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
-        r'^([A-Z][A-Z\s]{10,30})$',  # Long caps names (headers)
+        r'^([A-Z][A-Z\s]{10,30}),  # Long caps names (headers)
     ]
     
     for pattern in patterns:
@@ -153,8 +159,17 @@ def try_structured_patterns(text: str) -> Optional[str]:
     
     return None
 
+def is_common_non_name_word(word: str) -> bool:
+    """Check if a word is commonly used in non-name contexts"""
+    common_words = {
+        'real', 'test', 'demo', 'sample', 'template', 'draft', 'version',
+        'copy', 'final', 'new', 'old', 'temp', 'backup', 'original',
+        'email', 'mail', 'contact', 'info', 'admin', 'user', 'account'
+    }
+    return word.lower() in common_words
+
 def is_likely_name_word(word: str) -> bool:
-    """Check if a word is likely part of a person's name"""
+    """Check if a word is likely part of a person's name - ENHANCED"""
     word = word.strip('.,')
     
     # Skip if too short or too long
@@ -165,25 +180,41 @@ def is_likely_name_word(word: str) -> bool:
     if any(char.isdigit() for char in word):
         return False
     
-    # Skip common non-name words
+    # ENHANCED: Skip common non-name words including "REAL"
     skip_words = {
         'resume', 'cv', 'curriculum', 'vitae', 'profile', 'contact', 'phone', 'email',
         'address', 'objective', 'summary', 'experience', 'education', 'skills',
         'references', 'available', 'upon', 'request', 'professional', 'personal',
-        'information', 'details', 'background', 'qualifications'
+        'information', 'details', 'background', 'qualifications', 'real', 'draft',
+        'confidential', 'template', 'document', 'version', 'copy', 'sample',
+        'test', 'demo', 'temporary', 'backup', 'original', 'final', 'new', 'old'
     }
     
     if word.lower() in skip_words:
         return False
     
+    # Check for common false positive patterns
+    false_positive_patterns = [
+        r'^real,  # Specifically catch "REAL"
+        r'^test\d*,  # test, test1, test2, etc.
+        r'^sample\d*,  # sample, sample1, etc.
+        r'^temp\d*,  # temp, temp1, etc.
+        r'^draft\d*,  # draft, draft1, etc.
+    ]
+    
+    for pattern in false_positive_patterns:
+        if re.match(pattern, word.lower()):
+            return False
+    
     # Must start with capital letter and contain only letters and common name characters
     if not word[0].isupper():
         return False
     
+    # Allow only letters and common name characters
     return all(char.isalpha() or char in "'-." for char in word)
 
 def is_valid_name(name: str) -> bool:
-    """Validate if the extracted text is likely a valid name"""
+    """Validate if the extracted text is likely a valid name - ENHANCED"""
     if not name or len(name.strip()) < 3:
         return False
     
@@ -201,15 +232,28 @@ def is_valid_name(name: str) -> bool:
     if not all(is_likely_name_word(word) for word in words):
         return False
     
-    # Check for common false positives
+    # ENHANCED: Check for common false positives including "REAL"
     name_lower = name.lower()
     false_positives = [
         'resume objective', 'curriculum vitae', 'personal information',
         'contact information', 'professional summary', 'work experience',
-        'education background', 'technical skills', 'core competencies'
+        'education background', 'technical skills', 'core competencies',
+        'real estate', 'real time', 'real world', 'real life', 'real name',
+        'test case', 'sample data', 'draft version', 'template file',
+        'confidential document', 'original copy', 'final version'
     ]
     
     if any(fp in name_lower for fp in false_positives):
+        return False
+    
+    # Additional check: reject if name contains only common false positive words
+    false_positive_words = {'real', 'test', 'sample', 'draft', 'template', 'document'}
+    name_words_lower = {word.lower() for word in words}
+    if name_words_lower.issubset(false_positive_words):
+        return False
+    
+    # Reject single-word false positives even if capitalized
+    if len(words) == 1 and words[0].lower() in false_positive_words:
         return False
     
     return True
@@ -240,6 +284,10 @@ def format_name(name: str) -> str:
     
     # Final validation
     if len(formatted_name) > 50:  # Suspiciously long name
+        return "Unknown Candidate"
+    
+    # Final check against false positives
+    if not is_valid_name(formatted_name):
         return "Unknown Candidate"
     
     return formatted_name
@@ -273,7 +321,7 @@ def extract_name_from_filename(filename: str) -> str:
     
     # Fallback: try to clean the filename
     cleaned_name = re.sub(r'[_-]', ' ', name_part)
-    cleaned_name = re.sub(r'(?i)(resume|cv|curriculum|vitae)', '', cleaned_name)
+    cleaned_name = re.sub(r'(?i)(resume|cv|curriculum|vitae|real|test|sample|draft)', '', cleaned_name)
     cleaned_name = cleaned_name.strip()
     
     if cleaned_name and is_valid_name(cleaned_name):
@@ -290,6 +338,10 @@ def get_name_confidence_score(name: str, text: str) -> float:
         return 0.0
     
     confidence = 0.5  # Base confidence
+    
+    # Decrease confidence for suspicious names
+    if any(word.lower() in ['real', 'test', 'sample', 'draft'] for word in name.split()):
+        confidence -= 0.3
     
     # Increase confidence if name appears multiple times in text
     name_count = text.lower().count(name.lower())
