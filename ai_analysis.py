@@ -5,7 +5,7 @@ import time
 import json
 import re
 from typing import Dict, Any, Optional, List
-from name_extraction import extract_name_from_text, extract_name_from_filename  # FIXED: Correct function name
+from name_extraction import extract_name_from_text, extract_name_from_filename
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -297,9 +297,9 @@ def create_default_comprehensive_result(candidate_name: str) -> Dict[str, Any]:
     }
 
 def analyze_single_candidate(resume_text: str, job_description: str, filename: str, batch_mode: bool = False, max_retries: int = 2) -> Optional[Dict[str, Any]]:
-    """Analyze single candidate using Gemini 1.5 Flash model - FIXED MODEL NAME"""
+    """Analyze single candidate using Gemini 1.5 Flash model"""
     
-    logger.info(f"Analyzing {filename} with Gemini 1.5 Flash")
+    logger.info(f"Analyzing {filename} with Gemini 2.5 Flash")
     
     # Validate inputs
     if not resume_text or not resume_text.strip():
@@ -318,22 +318,22 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
     if not configure_gemini():
         return create_default_comprehensive_result("Unknown Candidate")
     
-    # Extract candidate name - FIXED: Use correct function name
+    # Extract candidate name
     candidate_name = extract_name_from_text(resume_text)
     if not candidate_name or candidate_name == "Unknown Candidate":
-        candidate_name = extract_name_from_filename(filename)  # FIXED: Correct function name
+        candidate_name = extract_name_from_filename(filename)
     
     logger.info(f"Extracted candidate name: {candidate_name}")
     
     try:
-        # FIXED: Use correct Gemini 1.5 Flash model name
+        # FIXED: Use correct Gemini 2.5 Flash model name (LATEST MODEL)
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",  # CORRECTED MODEL NAME
+            model_name="gemini-2.5-flash-002",  # LATEST 2.5 FLASH MODEL
             generation_config={
-                "temperature": 0.1,  # Lower temperature for more consistent results
+                "temperature": 0.1,
                 "top_p": 0.8,
                 "top_k": 40,
-                "max_output_tokens": 2048,  # Increased for comprehensive analysis
+                "max_output_tokens": 2048,
             }
         )
         
@@ -346,7 +346,7 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
                 
                 # Show progress to user
                 if attempt == 0:
-                    st.info(f"🔄 Analyzing {candidate_name} with Gemini 1.5 Flash...")
+                    st.info(f"🔄 Analyzing {candidate_name} with Gemini 2.5 Flash...")
                 
                 response = model.generate_content(prompt)
                 
@@ -367,7 +367,7 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
                 
                 if attempt < max_retries - 1:
                     st.info(f"⚠️ Retrying analysis for {candidate_name}...")
-                    time.sleep(3)  # Wait between retries
+                    time.sleep(3)
             
             except Exception as e:
                 logger.error(f"Attempt {attempt + 1} failed for {candidate_name}: {str(e)}")
@@ -378,7 +378,7 @@ def analyze_single_candidate(resume_text: str, job_description: str, filename: s
                 
                 if attempt < max_retries - 1:
                     st.warning(f"⚠️ Error in attempt {attempt + 1}, retrying...")
-                    time.sleep(5)  # Longer wait on error
+                    time.sleep(5)
                 else:
                     st.error(f"❌ Analysis failed for {candidate_name}: {str(e)}")
         
@@ -433,7 +433,7 @@ def analyze_batch_candidates(candidates_data: List[Dict[str, str]], job_descript
         
         # Rate limiting - longer delay for batch processing
         if i < total_candidates - 1:
-            time.sleep(4)  # 4 second delay between requests
+            time.sleep(4)
     
     if progress_callback:
         progress_callback(1.0, f"Completed! {len(results)}/{total_candidates} successful")
