@@ -15,7 +15,8 @@ from name_extraction import extract_name_from_text, extract_name_from_filename
 from pdf_generator import generate_comparison_pdf, generate_single_candidate_pdf, generate_batch_zip_reports
 from ui_components import (
     apply_custom_css, render_header, render_sidebar, render_compact_file_info,
-    render_persistent_error, render_persistent_success, render_file_limit_warning
+    render_persistent_error, render_persistent_success, render_file_limit_warning,
+    render_right_aligned_analyze_button
 )
 
 # Configure logging
@@ -43,7 +44,7 @@ def initialize_session_state():
 
 def clear_session():
     """Clear ALL session state data completely"""
-    logger.info("Clearing all session state data...")
+    logger.info("🗑️ Clearing all session state data...")
     
     # List of ALL keys to clear
     keys_to_clear = [
@@ -69,7 +70,7 @@ def clear_session():
     st.session_state.session_id = str(uuid.uuid4())[:8]
     st.session_state['clear_trigger'] = datetime.now().timestamp()
     
-    logger.info("Session cleared successfully")
+    logger.info("✅ Session cleared successfully")
     render_persistent_success("Session cleared successfully! All data removed.")
     time.sleep(1)
     st.rerun()
@@ -162,7 +163,7 @@ def create_excel_report(results):
         
         return output.getvalue()
     except Exception as e:
-        logger.error(f"Excel generation error: {str(e)}")
+        logger.error(f"❌ Excel generation error: {str(e)}")
         return None
 
 def create_json_report(results):
@@ -175,7 +176,7 @@ def create_json_report(results):
         }
         return json.dumps(report_data, indent=2)
     except Exception as e:
-        logger.error(f"JSON generation error: {str(e)}")
+        logger.error(f"❌ JSON generation error: {str(e)}")
         return None
 
 def display_analysis_results(results, job_description):
@@ -284,7 +285,7 @@ def display_analysis_results(results, job_description):
                             if weakness and len(weakness.strip()) > 5:
                                 st.write(f"• {weakness}")
                     
-                    # Interview Questions - FIXED SECTION
+                    # Interview Questions
                     interview_questions = result.get('interview_questions', [])
                     if interview_questions:
                         st.markdown("**❓ Interview Questions:**")
@@ -301,7 +302,7 @@ def display_analysis_results(results, job_description):
     with tab3:
         st.subheader("📄 Export Results")
         
-        # FIXED: Reordered buttons - PDF first, Excel second, JSON third
+        # Export buttons - PDF first, Excel second, JSON third
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -449,7 +450,7 @@ def main():
             help="Select a resume file for AI analysis"
         )
         
-        # FIXED: Button handling logic - moved outside columns and simplified
+        # FIXED: Button handling logic with right-aligned button
         if uploaded_file and st.session_state.job_description.strip():
             # Validate file first
             valid_files, errors = validate_uploaded_files(uploaded_file, is_batch=False)
@@ -460,13 +461,14 @@ def main():
                 # Show file info
                 render_compact_file_info(uploaded_file)
                 
-                # MAIN FIX: Move button outside of columns and simplify logic
+                # FIXED: Right-aligned analyze button
                 st.markdown("### 🔍 Analysis")
                 
                 # Simple analyze button with unique key based on file and job description
                 button_key = f"analyze_{hashlib.md5((uploaded_file.name + st.session_state.job_description).encode()).hexdigest()[:8]}"
                 
-                if st.button("🔍 Analyze Resume", key=button_key, type="primary", use_container_width=False):
+                # Use the new right-aligned button function
+                if render_right_aligned_analyze_button("🔍 Analyze Resume", button_key):
                     
                     # Create status container
                     status_container = st.container()
@@ -495,7 +497,7 @@ def main():
                                 result = st.session_state.candidate_cache[cache_key]
                             else:
                                 # Step 3: AI Analysis
-                                with st.spinner("🤖 Analyzing with Gemini AI..."):
+                                with st.spinner("🤖 Analyzing with AI..."):
                                     result = analyze_single_candidate(
                                         file_text,
                                         st.session_state.job_description,
@@ -520,7 +522,7 @@ def main():
                                 st.rerun()
                             
                         except Exception as e:
-                            logger.error(f"Analysis error: {str(e)}")
+                            logger.error(f"❌ Analysis error: {str(e)}")
                             st.error(f"❌ Analysis failed: {str(e)}")
         
         elif uploaded_file and not st.session_state.job_description.strip():
@@ -558,7 +560,7 @@ def main():
         else:
             st.warning("⚠️ Job description needed for batch analysis")
         
-        # FIXED: Batch analysis logic - same pattern as single analysis
+        # FIXED: Batch analysis logic with right-aligned button
         if uploaded_files and st.session_state.job_description.strip():
             # Validate files
             valid_files, errors = validate_uploaded_files(uploaded_files, is_batch=True)
@@ -574,14 +576,14 @@ def main():
                         file_size_mb = len(file.getvalue()) / (1024 * 1024)
                         st.write(f"{i}. **{file.name}** ({file_size_mb:.1f} MB)")
                 
-                # FIXED: Batch analysis button - outside columns
+                # FIXED: Batch analysis button - right aligned
                 st.markdown("### 🔍 Batch Analysis")
                 
                 # Create unique key for batch button
                 files_hash = hashlib.md5(''.join([f.name for f in valid_files]).encode()).hexdigest()[:8]
                 batch_button_key = f"batch_analyze_{files_hash}_{hashlib.md5(st.session_state.job_description.encode()).hexdigest()[:8]}"
                 
-                if st.button("🔍 Analyze All Resumes", key=batch_button_key, type="primary"):
+                if render_right_aligned_analyze_button("🔍 Analyze All Resumes", batch_button_key):
                     
                     # Progress tracking
                     progress_bar = st.progress(0)
@@ -668,7 +670,7 @@ def main():
                         st.rerun()
                         
                     except Exception as e:
-                        logger.error(f"Batch analysis error: {str(e)}")
+                        logger.error(f"❌ Batch analysis error: {str(e)}")
                         status_text.error(f"❌ Batch analysis failed: {str(e)}")
                         st.error(f"Batch analysis failed: {str(e)}")
         
